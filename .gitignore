@@ -1,0 +1,60 @@
+# ==============================================================================
+# Git Ignore Configuration for HitShare
+# ==============================================================================
+
+# Dependencies
+backend/vendor/
+frontend/node_modules/
+
+# Environment configurations (Keep examples only)
+.env
+.env.*
+!.env.production.example
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# Frontend build outputs
+frontend/dist/
+frontend/dist-ssr/
+
+# Laravel Storage & Cache
+backend/storage/logs/*
+!backend/storage/logs/.gitignore
+backend/storage/framework/cache/*
+!backend/storage/framework/cache/.gitignore
+backend/storage/framework/sessions/*
+!backend/storage/framework/sessions/.gitignore
+backend/storage/framework/views/*
+!backend/storage/framework/views/.gitignore
+backend/bootstrap/cache/*
+!backend/bootstrap/cache/.gitignore
+backend/public/hot
+backend/public/storage
+
+# Testing & Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.phpunit.result.cache
+
+# IDE & OS Metadata
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Temporary local extension archives (keep public/downloads/extension.zip)
+extension-dev*.zip
+extension-dev (*).zip

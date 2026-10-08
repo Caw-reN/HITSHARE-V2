@@ -1,0 +1,359 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  body {
+    background-color: #F8F8F5;
+    color: #1F2937;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    font-size: 0.95rem;
+    line-height: 1.55;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #D1D5DB;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9CA3AF;
+}
+
+/* Zebra cross stripes for progress bar */
+.zebra-stripes {
+  background-color: #111111;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    #18181b 0px,
+    #18181b 10px,
+    #3f3f46 10px,
+    #3f3f46 20px
+  );
+  background-size: 28.28px 28.28px;
+  animation: zebraMove 3s linear infinite;
+}
+
+@keyframes zebraMove {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 28.28px 0;
+  }
+}
+
+/* Smooth tab content switch animation */
+@keyframes tabSwitch {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-tab-switch {
+  animation: tabSwitch 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Dynamic flying / wandering animations for hero decorative shapes (no pulsing) */
+@keyframes flyAround1 {
+  0% {
+    transform: translate(0px, 0px) rotate(-8deg);
+  }
+  18% {
+    transform: translate(55px, -35px) rotate(16deg);
+  }
+  36% {
+    transform: translate(110px, 15px) rotate(-14deg);
+  }
+  54% {
+    transform: translate(65px, 70px) rotate(22deg);
+  }
+  72% {
+    transform: translate(-30px, 55px) rotate(-12deg);
+  }
+  88% {
+    transform: translate(-50px, 15px) rotate(8deg);
+  }
+  100% {
+    transform: translate(0px, 0px) rotate(-8deg);
+  }
+}
+
+@keyframes flyAround2 {
+  0% {
+    transform: translate(0px, 0px) rotate(12deg);
+  }
+  20% {
+    transform: translate(-55px, 45px) rotate(-18deg);
+  }
+  42% {
+    transform: translate(-115px, -20px) rotate(26deg);
+  }
+  65% {
+    transform: translate(-60px, -65px) rotate(-12deg);
+  }
+  82% {
+    transform: translate(35px, -30px) rotate(20deg);
+  }
+  100% {
+    transform: translate(0px, 0px) rotate(12deg);
+  }
+}
+
+@keyframes flyAround3 {
+  0% {
+    transform: translate(0px, 0px) rotate(-6deg);
+  }
+  22% {
+    transform: translate(75px, -50px) rotate(18deg);
+  }
+  48% {
+    transform: translate(135px, -15px) rotate(-15deg);
+  }
+  70% {
+    transform: translate(80px, 55px) rotate(20deg);
+  }
+  85% {
+    transform: translate(-30px, 35px) rotate(-8deg);
+  }
+  100% {
+    transform: translate(0px, 0px) rotate(-6deg);
+  }
+}
+
+@keyframes flyAround4 {
+  0% {
+    transform: translate(0px, 0px) rotate(0deg);
+  }
+  25% {
+    transform: translate(-70px, -50px) rotate(90deg);
+  }
+  50% {
+    transform: translate(-130px, 35px) rotate(180deg);
+  }
+  75% {
+    transform: translate(-55px, 80px) rotate(270deg);
+  }
+  100% {
+    transform: translate(0px, 0px) rotate(360deg);
+  }
+}
+
+@keyframes flyAround5 {
+  0% {
+    transform: translate(0px, 0px) rotate(0deg);
+  }
+  20% {
+    transform: translate(-45px, 35px) rotate(-35deg);
+  }
+  45% {
+    transform: translate(35px, 65px) rotate(30deg);
+  }
+  70% {
+    transform: translate(85px, 15px) rotate(90deg);
+  }
+  88% {
+    transform: translate(40px, -35px) rotate(45deg);
+  }
+  100% {
+    transform: translate(0px, 0px) rotate(0deg);
+  }
+}
+
+@keyframes driftStar {
+  0%, 100% {
+    transform: translate(0px, 0px) rotate(0deg);
+  }
+  33% {
+    transform: translate(3px, -5px) rotate(10deg);
+  }
+  66% {
+    transform: translate(-3px, -2px) rotate(-8deg);
+  }
+}
+
+@keyframes driftStarMini {
+  0%, 100% {
+    transform: translate(0px, 0px) rotate(0deg);
+  }
+  40% {
+    transform: translate(-4px, -4px) rotate(-12deg);
+  }
+  75% {
+    transform: translate(3px, -2px) rotate(8deg);
+  }
+}
+
+.animate-fly-1 {
+  animation: flyAround1 13s ease-in-out infinite;
+  will-change: transform;
+}
+
+.animate-fly-2 {
+  animation: flyAround2 15s ease-in-out infinite;
+  will-change: transform;
+}
+
+.animate-fly-3 {
+  animation: flyAround3 16s ease-in-out infinite;
+  will-change: transform;
+}
+
+.animate-fly-4 {
+  animation: flyAround4 17s ease-in-out infinite;
+  will-change: transform;
+}
+
+.animate-fly-5 {
+  animation: flyAround5 14s ease-in-out infinite;
+  will-change: transform;
+}
+
+.animate-drift-star {
+  animation: driftStar 4s ease-in-out infinite;
+  will-change: transform;
+}
+
+.animate-drift-star-mini {
+  animation: driftStarMini 5s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Animated flowing ocean wave underline (Direction: Left to Right across 160px irregular wave cycle, glide only) */
+@keyframes waveFlow {
+  0% {
+    background-position-x: 0px;
+  }
+  100% {
+    background-position-x: 160px;
+  }
+}
+
+/* Animated draw-in entrance for wave underline (Menyapu masuk dari kiri ke kanan saat load) */
+@keyframes waveDrawIn {
+  0% {
+    clip-path: inset(0 100% 0 0);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    clip-path: inset(0 0% 0 0);
+    opacity: 1;
+  }
+}
+
+/* Staggered entrance animation for hero headline and content */
+@keyframes heroFadeUp {
+  0% {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-hero-line-1 {
+  animation: heroFadeUp 0.85s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+}
+
+.animate-hero-line-2 {
+  animation: heroFadeUp 0.85s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both;
+}
+
+.animate-hero-sub {
+  animation: heroFadeUp 0.85s cubic-bezier(0.16, 1, 0.3, 1) 0.4s both;
+}
+
+.animate-hero-cta {
+  animation: heroFadeUp 0.85s cubic-bezier(0.16, 1, 0.3, 1) 0.55s both;
+}
+
+/* Animated font wave swell (ombak bobbing & swaying per-huruf dari kiri ke kanan) */
+@keyframes waveCharMotion {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-4px) rotate(-1deg);
+  }
+  50% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  75% {
+    transform: translateY(3.5px) rotate(1deg);
+  }
+}
+
+.wave-char {
+  display: inline-block;
+  animation: waveCharMotion 2.4s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Container untuk kata yang memiliki garis ombak di bawahnya ("Satu") */
+.wave-word {
+  position: relative;
+  display: inline-block;
+}
+
+/* Garis gelombang tidak beraturan di bawah kata: memiliki animasi masuk (draw-in) dan mengalir horisontal */
+.wave-underline {
+  position: absolute;
+  left: -2px;
+  right: -2px;
+  bottom: -8px;
+  height: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 20' fill='none'%3E%3Cpath d='M -14 8.2 C -9.7 7.6, -4.7 10.2, 0 10 C 4.7 9.8, 9.3 6.9, 14 7.2 C 18.7 7.5, 23.7 11.6, 28 11.8 C 32.3 12, 35.7 10.1, 40 8.5 C 44.3 7, 49.3 2.3, 54 2.5 C 58.7 2.7, 63.7 7.2, 68 9.5 C 72.3 11.8, 75.7 16.3, 80 16.5 C 84.3 16.8, 89.3 12.9, 94 11 C 98.7 9.1, 103.3 5.3, 108 5.2 C 112.7 5.1, 117.7 9.1, 122 10.5 C 126.3 11.9, 130 14.2, 134 13.8 C 138 13.4, 141.7 8.8, 146 8.2 C 150.3 7.6, 155.3 10.2, 160 10 C 164.7 9.8, 169.3 6.9, 174 7.2' stroke='%23C5C5B6' stroke-width='3.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: repeat-x;
+  background-size: 160px 16px;
+  pointer-events: none;
+  animation-name: waveDrawIn, waveFlow;
+  animation-duration: 0.9s, 6s;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1), linear;
+  animation-iteration-count: 1, infinite;
+  animation-fill-mode: both, none;
+  will-change: clip-path, background-position;
+}
+
+@media (min-width: 640px) {
+  .wave-underline {
+    bottom: -11px;
+    height: 20px;
+    background-size: 160px 20px;
+  }
+}
+
+/* Alias kompatibilitas */
+.wave-with-underline {
+  position: relative;
+  display: inline-block;
+}
+
+
+
+
+

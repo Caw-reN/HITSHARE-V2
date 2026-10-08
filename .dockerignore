@@ -1,0 +1,30 @@
+# Git
+.git
+.gitignore
+
+# Composer & NPM dependencies
+backend/vendor
+frontend/node_modules
+frontend/dist
+
+# Environment files
+backend/.env
+frontend/.env
+.env.local
+
+# Logs and cache
+backend/storage/logs/*
+!backend/storage/logs/.gitignore
+backend/bootstrap/cache/*
+!backend/bootstrap/cache/.gitignore
+
+# Testing and IDE
+.idea
+.vscode
+*.sublime*
+backend/tests
+backend/.phpunit.result.cache
+
+# Archives
+*.zip
+*.tar.gz
