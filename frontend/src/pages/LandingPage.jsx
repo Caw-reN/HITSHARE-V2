@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { motion, useScroll, useTransform } from 'motion/react';
 import Navbar from '../components/Navbar';
 import api from '../api/client';
 import {
@@ -24,10 +25,46 @@ const CURRENT_YEAR = new Date().getFullYear();
 export default function LandingPage() {
   const [settings, setSettings] = useState({});
   const [openFaq, setOpenFaq] = useState(null);
+  const [plans, setPlans] = useState([]);
+  const [plansLoading, setPlansLoading] = useState(true);
+
+  // Motion Sticky Reveal Footer Refs
+  const footerContainerRef = useRef(null);
+  const { scrollYProgress } = useScroll({
+    target: footerContainerRef,
+    offset: ['start end', 'end end'],
+  });
+  const footerOpacity = useTransform(scrollYProgress, [0, 0.6, 1], [0.4, 0.8, 1]);
+  const footerScale = useTransform(scrollYProgress, [0, 1], [0.96, 1]);
+  const footerY = useTransform(scrollYProgress, [0, 1], [40, 0]);
 
   useEffect(() => {
     // Fetch public settings
     api.get('/settings/public').then((res) => setSettings(res.data)).catch(() => {});
+
+    // Fetch dynamic payment plans
+    api
+      .get('/payment/plans')
+      .then((res) => {
+        if (Array.isArray(res.data) && res.data.length > 0) {
+          setPlans(res.data);
+        } else {
+          setPlans([
+            { plan: 'monthly', label: '1 Bulan', amount: 25000, original_price: 35000, duration_days: 30, badge: null },
+            { plan: '6months', label: '6 Bulan', amount: 120000, original_price: 150000, duration_days: 180, badge: 'Paling Hemat' },
+            { plan: 'yearly', label: '1 Tahun', amount: 200000, original_price: 300000, duration_days: 365, badge: 'Full Garansi' },
+          ]);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load plans:', err);
+        setPlans([
+          { plan: 'monthly', label: '1 Bulan', amount: 25000, original_price: 35000, duration_days: 30, badge: null },
+          { plan: '6months', label: '6 Bulan', amount: 120000, original_price: 150000, duration_days: 180, badge: 'Paling Hemat' },
+          { plan: 'yearly', label: '1 Tahun', amount: 200000, original_price: 300000, duration_days: 365, badge: 'Full Garansi' },
+        ]);
+      })
+      .finally(() => setPlansLoading(false));
   }, []);
 
   const faqs = [
@@ -404,108 +441,123 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Pricing Section */}
+      {/* Pricing Section (Dynamic from Database) */}
       <section id="harga" className="py-20 px-4 bg-[#F2F2EC] border-t border-[#E5E5DC]">
-        <div className="max-w-5xl mx-auto space-y-12">
+        <div className="max-w-6xl mx-auto space-y-12">
           <div className="text-center space-y-3">
             <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">Pilihan Investasi Terbaik</span>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-neutral-900 tracking-tight">Harga Langganan Terjangkau</h2>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-neutral-900 tracking-tight">Biaya Langganan Terjangkau</h2>
             <p className="text-sm sm:text-base text-neutral-600 max-w-lg mx-auto">
-              Pilih paket yang paling pas dengan kebutuhan Anda. Semua paket mendapatkan akses penuh ke seluruh koleksi akun.
+              Pilih paket yang paling pas dengan kebutuhan Anda. Semua paket otomatis mendapatkan akses penuh ke seluruh koleksi akun dan update sesi berkala.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6 items-stretch">
-            {/* Monthly */}
-            <div className="bg-white p-7 rounded-3xl border border-[#E8E8DF] shadow-bone flex flex-col justify-between space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-bold text-neutral-900">1 Bulan</h3>
-                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-neutral-100 text-neutral-700">30 Hari</span>
-                </div>
-                <div>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-sm text-neutral-500 font-medium">Rp</span>
-                    <span className="text-3xl font-extrabold text-neutral-900">25.000</span>
-                  </div>
-                  <span className="text-xs text-neutral-400 line-through">Rp 35.000</span>
-                </div>
-                <ul className="space-y-2.5 text-xs text-neutral-600 font-medium pt-2 border-t border-neutral-100">
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Akses 25+ Website Premium</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Ekstensi Chrome / Edge</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> 1 Perangkat Aktif</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Support Update Cookie</li>
-                </ul>
-              </div>
-              <Link
-                to="/daftar?plan=monthly"
-                className="w-full py-3 text-center text-xs font-semibold text-neutral-800 bg-[#F4F4ED] hover:bg-[#EAEAE1] border border-[#DDDDCF] rounded-2xl transition-all"
-              >
-                Pilih Paket 1 Bulan
-              </Link>
+          {plansLoading ? (
+            <div className="flex justify-center items-center py-12">
+              <div className="w-8 h-8 border-3 border-neutral-300 border-t-neutral-900 rounded-full animate-spin" />
             </div>
+          ) : (
+            <div className={`grid gap-6 items-stretch ${
+              plans.length === 1 ? 'max-w-md mx-auto grid-cols-1' :
+              plans.length === 2 ? 'max-w-3xl mx-auto md:grid-cols-2' :
+              plans.length === 4 ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4' :
+              'grid-cols-1 md:grid-cols-3'
+            }`}>
+              {plans.map((p, idx) => {
+                const isHighlighted = p.plan === '6months' || p.badge?.toLowerCase().includes('hemat') || p.badge?.toLowerCase().includes('populer') || (plans.length > 2 && idx === 1);
+                const originalPrice = p.original_price || p.original;
+                const formattedPrice = new Intl.NumberFormat('id-ID').format(p.amount);
+                const formattedOriginal = originalPrice ? new Intl.NumberFormat('id-ID').format(originalPrice) : null;
+                const badgeLabel = p.badge || (isHighlighted ? 'Paling Hemat' : null);
 
-            {/* 6 Months - Highlighted */}
-            <div className="bg-neutral-900 text-white p-7 rounded-3xl border-2 border-neutral-900 shadow-bone-lg flex flex-col justify-between space-y-6 relative scale-105 z-10">
-              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-emerald-500 text-neutral-900 text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm">
-                <Flame className="w-3.5 h-3.5 fill-neutral-900" /> Paling Hemat
-              </div>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-bold text-white">6 Bulan</h3>
-                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-neutral-800 text-neutral-300">180 Hari</span>
-                </div>
-                <div>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-sm text-neutral-400 font-medium">Rp</span>
-                    <span className="text-4xl font-black text-white">120.000</span>
-                  </div>
-                  <span className="text-xs text-neutral-500 line-through">Rp 150.000 (Hemat 20k/bln)</span>
-                </div>
-                <ul className="space-y-2.5 text-xs text-neutral-300 font-medium pt-2 border-t border-neutral-800">
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Akses 25+ Website Premium</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Ekstensi Chrome / Edge</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Prioritas Update Cookie</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> Support WhatsApp Cepat</li>
-                </ul>
-              </div>
-              <Link
-                to="/daftar?plan=6months"
-                className="w-full py-3 text-center text-xs font-bold text-neutral-900 bg-white hover:bg-neutral-100 rounded-2xl transition-all shadow"
-              >
-                Pilih Paket 6 Bulan
-              </Link>
-            </div>
+                return (
+                  <div
+                    key={p.plan || idx}
+                    className={`rounded-3xl p-7 flex flex-col justify-between space-y-6 transition-all relative ${
+                      isHighlighted
+                        ? 'bg-neutral-900 text-white border-2 border-neutral-900 shadow-bone-lg md:scale-105 z-10'
+                        : 'bg-white text-neutral-900 border border-[#E8E8DF] shadow-bone hover:border-neutral-400'
+                    }`}
+                  >
+                    {badgeLabel && (
+                      <div className={`absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-sm ${
+                        isHighlighted ? 'bg-emerald-500 text-neutral-950 font-black' : 'bg-neutral-900 text-white'
+                      }`}>
+                        <Flame className="w-3.5 h-3.5 fill-current" />
+                        <span>{badgeLabel}</span>
+                      </div>
+                    )}
 
-            {/* Yearly */}
-            <div className="bg-white p-7 rounded-3xl border border-[#E8E8DF] shadow-bone flex flex-col justify-between space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-bold text-neutral-900">1 Tahun</h3>
-                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-neutral-100 text-neutral-700">365 Hari</span>
-                </div>
-                <div>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-sm text-neutral-500 font-medium">Rp</span>
-                    <span className="text-3xl font-extrabold text-neutral-900">200.000</span>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className={`text-lg font-bold ${isHighlighted ? 'text-white' : 'text-neutral-900'}`}>
+                          {p.label || p.plan}
+                        </h3>
+                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                          isHighlighted ? 'bg-neutral-800 text-neutral-300' : 'bg-neutral-100 text-neutral-700'
+                        }`}>
+                          {p.duration_days ? `${p.duration_days} Hari` : 'Akses Penuh'}
+                        </span>
+                      </div>
+
+                      <div>
+                        <div className="flex items-baseline gap-1">
+                          <span className={`text-sm font-medium ${isHighlighted ? 'text-neutral-400' : 'text-neutral-500'}`}>
+                            Rp
+                          </span>
+                          <span className={`font-black ${isHighlighted ? 'text-4xl text-white' : 'text-3xl text-neutral-900'}`}>
+                            {formattedPrice}
+                          </span>
+                        </div>
+                        {formattedOriginal && (
+                          <span className={`text-xs line-through ${isHighlighted ? 'text-neutral-500' : 'text-neutral-400'}`}>
+                            Rp {formattedOriginal}
+                          </span>
+                        )}
+                        {p.description && (
+                          <p className={`text-xs mt-1.5 ${isHighlighted ? 'text-neutral-400' : 'text-neutral-500'}`}>
+                            {p.description}
+                          </p>
+                        )}
+                      </div>
+
+                      <ul className={`space-y-2.5 text-xs font-medium pt-3 border-t ${
+                        isHighlighted ? 'text-neutral-300 border-neutral-800' : 'text-neutral-600 border-neutral-100'
+                      }`}>
+                        <li className="flex items-center gap-2">
+                          <CheckCircle2 className={`w-4 h-4 shrink-0 ${isHighlighted ? 'text-emerald-400' : 'text-emerald-600'}`} />
+                          <span>Akses 25+ Website Premium</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <CheckCircle2 className={`w-4 h-4 shrink-0 ${isHighlighted ? 'text-emerald-400' : 'text-emerald-600'}`} />
+                          <span>Ekstensi Chrome, Edge &amp; Brave</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <CheckCircle2 className={`w-4 h-4 shrink-0 ${isHighlighted ? 'text-emerald-400' : 'text-emerald-600'}`} />
+                          <span>1 Perangkat Aktif (Device Lock)</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <CheckCircle2 className={`w-4 h-4 shrink-0 ${isHighlighted ? 'text-emerald-400' : 'text-emerald-600'}`} />
+                          <span>Garansi &amp; Update Cookie Berkala</span>
+                        </li>
+                      </ul>
+                    </div>
+
+                    <Link
+                      to={`/daftar?plan=${encodeURIComponent(p.plan)}`}
+                      className={`w-full py-3 text-center text-xs font-bold rounded-2xl transition-all cursor-pointer ${
+                        isHighlighted
+                          ? 'text-neutral-900 bg-white hover:bg-neutral-100 shadow-md hover:shadow-lg'
+                          : 'text-neutral-800 bg-[#F4F4ED] hover:bg-[#EAEAE1] border border-[#DDDDCF]'
+                      }`}
+                    >
+                      Pilih Paket {p.label || p.plan}
+                    </Link>
                   </div>
-                  <span className="text-xs text-neutral-400 line-through">Rp 300.000</span>
-                </div>
-                <ul className="space-y-2.5 text-xs text-neutral-600 font-medium pt-2 border-t border-neutral-100">
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Akses 25+ Website Premium</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Ekstensi Chrome / Edge</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Full Garansi 1 Tahun</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> VIP Support WhatsApp</li>
-                </ul>
-              </div>
-              <Link
-                to="/daftar?plan=yearly"
-                className="w-full py-3 text-center text-xs font-semibold text-neutral-800 bg-[#F4F4ED] hover:bg-[#EAEAE1] border border-[#DDDDCF] rounded-2xl transition-all"
-              >
-                Pilih Paket 1 Tahun
-              </Link>
+                );
+              })}
             </div>
-          </div>
+          )}
         </div>
       </section>
 
@@ -563,98 +615,118 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="mt-20 border-t border-[#EAEAE3] bg-white pt-16 pb-12 text-sm text-neutral-600">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-[#EAEAE3]">
-            {/* Col 1: Brand Info (2 cols wide) */}
-            <div className="lg:col-span-2 space-y-4">
-              <Link to="/" className="inline-flex items-center gap-2.5 group">
-                <div className="w-10 h-10 rounded-2xl bg-white border border-[#E0E0D8] p-1.5 flex items-center justify-center shadow-sm transition-transform group-hover:scale-105 overflow-hidden">
-                  <img src="/icon.png" alt="HitShare Logo" className="w-full h-full object-contain" />
+      {/* Sticky Reveal Footer Container (Motion.dev Sticky Reveal Pattern) */}
+      <div
+        ref={footerContainerRef}
+        className="relative -mt-20 pt-20"
+        style={{ clipPath: 'polygon(0% 0, 100% 0%, 100% 100%, 0 100%)' }}
+      >
+        <div className="relative h-full min-h-[480px]">
+          <div className="sticky bottom-0 left-0 right-0 z-0">
+            <motion.footer
+              style={{
+                opacity: footerOpacity,
+                scale: footerScale,
+                y: footerY,
+              }}
+              className="bg-[#0D0E12] text-neutral-300 pt-16 pb-12 text-sm border-t border-neutral-800 shadow-2xl relative overflow-hidden"
+            >
+              {/* Subtle ambient glow in footer */}
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-32 bg-emerald-500/10 blur-[90px] pointer-events-none rounded-full" />
+
+              <div className="max-w-6xl mx-auto px-4 relative z-10">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-neutral-800/80">
+                  {/* Col 1: Brand Info (2 cols wide) */}
+                  <div className="lg:col-span-2 space-y-4">
+                    <Link to="/" className="inline-flex items-center gap-2.5 group">
+                      <div className="w-10 h-10 rounded-2xl bg-white p-1.5 flex items-center justify-center shadow-sm transition-transform group-hover:scale-105 overflow-hidden">
+                        <img src="/icon.png" alt="HitShare Logo" className="w-full h-full object-contain" />
+                      </div>
+                      <div>
+                        <span className="text-xl font-black tracking-tight text-white">HitShare</span>
+                        <span className="block text-[10px] text-neutral-400 font-bold tracking-wider">PREMIUM ACCESS PLATFORM</span>
+                      </div>
+                    </Link>
+                    <p className="text-xs sm:text-sm text-neutral-400 leading-relaxed max-w-sm">
+                      Solusi cerdas akses bersama tools &amp; website premium favorit tanpa bagi password. Mudah, aman, otomatis dengan ekstensi browser berteknologi tinggi.
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                      <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-950/80 text-emerald-400 border border-emerald-800/50">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        Layanan Aktif 24/7
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-neutral-900 text-neutral-300 border border-neutral-800">
+                        <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                        Sistem Enkripsi
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Col 2: Navigasi Produk */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">Produk &amp; Fitur</h4>
+                    <ul className="space-y-2 text-xs">
+                      <li><a href="#fitur" className="text-neutral-400 hover:text-white transition-colors">Fitur Unggulan</a></li>
+                      <li><a href="#koleksi" className="text-neutral-400 hover:text-white transition-colors">Koleksi Website</a></li>
+                      <li><a href="#harga" className="text-neutral-400 hover:text-white transition-colors">Pilihan Paket</a></li>
+                      <li><a href="#faq" className="text-neutral-400 hover:text-white transition-colors">Tanya Jawab (FAQ)</a></li>
+                      <li><Link to="/akun" className="text-neutral-400 hover:text-white transition-colors">Download Ekstensi</Link></li>
+                    </ul>
+                  </div>
+
+                  {/* Col 3: Portal Pengguna */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">Akun &amp; Layanan</h4>
+                    <ul className="space-y-2 text-xs">
+                      <li><Link to="/login" className="text-neutral-400 hover:text-white transition-colors">Masuk Member</Link></li>
+                      <li><Link to="/daftar" className="text-neutral-400 hover:text-white transition-colors">Daftar Akun Baru</Link></li>
+                      <li><Link to="/akun" className="text-neutral-400 hover:text-white transition-colors">Dashboard Saya</Link></li>
+                      <li><a href={`https://wa.me/${waNumber}?text=${encodeURIComponent('Halo Admin HitShare, saya butuh bantuan reset perangkat')}`} target="_blank" rel="noreferrer" className="text-neutral-400 hover:text-white transition-colors">Reset Device ID</a></li>
+                      <li><a href={`https://wa.me/${waNumber}?text=${encodeURIComponent('Halo Admin HitShare, saya ingin konfirmasi perpanjangan')}`} target="_blank" rel="noreferrer" className="text-neutral-400 hover:text-white transition-colors">Perpanjangan Langganan</a></li>
+                    </ul>
+                  </div>
+
+                  {/* Col 4: Bantuan & Kontak */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">Bantuan &amp; Dukungan</h4>
+                    <ul className="space-y-2 text-xs">
+                      <li>
+                        <a
+                          href={`https://wa.me/${waNumber}?text=${waMsg}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 font-bold text-emerald-400 hover:text-emerald-300"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                          WhatsApp Customer Support
+                        </a>
+                      </li>
+                      <li><span className="text-neutral-400">Respon cepat: &lt; 15 menit</span></li>
+                      <li><span className="text-neutral-400">Monitoring status akun 24/7</span></li>
+                      <li><span className="text-neutral-400">Garansi cookie selalu aktif</span></li>
+                    </ul>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-xl font-bold tracking-tight text-neutral-900">HitShare</span>
-                  <span className="block text-xs text-neutral-500 -mt-0.5 font-semibold tracking-wide">PREMIUM ACCESS</span>
+
+                {/* Bottom Bar */}
+                <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-neutral-400">
+                  <div className="flex items-center gap-2">
+                    <img src="/icon.png" alt="HitShare" className="w-5 h-5 object-contain rounded-md bg-white p-0.5" />
+                    <span>© {CURRENT_YEAR} <strong className="text-white">HitShare</strong>. Seluruh hak cipta dilindungi undang-undang.</span>
+                  </div>
+                  <div className="flex items-center gap-4 text-neutral-400">
+                    <a href="#fitur" className="hover:text-white transition-colors">Keamanan</a>
+                    <span>•</span>
+                    <a href="#harga" className="hover:text-white transition-colors">Ketentuan Layanan</a>
+                    <span>•</span>
+                    <a href={`https://wa.me/${waNumber}`} target="_blank" rel="noreferrer" className="hover:text-white transition-colors">Bantuan WhatsApp</a>
+                  </div>
                 </div>
-              </Link>
-              <p className="text-xs sm:text-sm text-neutral-500 leading-relaxed max-w-sm">
-                Solusi cerdas akses bersama tools &amp; website premium favorit tanpa bagi password. Mudah, aman, otomatis dengan ekstensi browser berteknologi tinggi.
-              </p>
-              <div className="flex flex-wrap items-center gap-2.5 pt-1">
-                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                  Layanan Aktif 24/7
-                </span>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-neutral-100 text-neutral-700">
-                  <Shield className="w-3.5 h-3.5 text-emerald-600" />
-                  Sistem Enkripsi
-                </span>
               </div>
-            </div>
-
-            {/* Col 2: Navigasi Produk */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-bold text-neutral-900 uppercase tracking-wider">Produk &amp; Fitur</h4>
-              <ul className="space-y-2 text-xs">
-                <li><a href="#fitur" className="hover:text-emerald-700 transition-colors">Fitur Unggulan</a></li>
-                <li><a href="#koleksi" className="hover:text-emerald-700 transition-colors">Koleksi Website</a></li>
-                <li><a href="#harga" className="hover:text-emerald-700 transition-colors">Pilihan Paket</a></li>
-                <li><a href="#faq" className="hover:text-emerald-700 transition-colors">Tanya Jawab (FAQ)</a></li>
-                <li><Link to="/akun" className="hover:text-emerald-700 transition-colors">Download Ekstensi</Link></li>
-              </ul>
-            </div>
-
-            {/* Col 3: Portal Pengguna */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-bold text-neutral-900 uppercase tracking-wider">Akun &amp; Layanan</h4>
-              <ul className="space-y-2 text-xs">
-                <li><Link to="/login" className="hover:text-emerald-700 transition-colors">Masuk Member</Link></li>
-                <li><Link to="/daftar" className="hover:text-emerald-700 transition-colors">Daftar Akun Baru</Link></li>
-                <li><Link to="/akun" className="hover:text-emerald-700 transition-colors">Dashboard Saya</Link></li>
-                <li><a href={`https://wa.me/${waNumber}?text=${encodeURIComponent('Halo Admin HitShare, saya butuh bantuan reset perangkat')}`} target="_blank" rel="noreferrer" className="hover:text-emerald-700 transition-colors">Reset Device ID</a></li>
-                <li><a href={`https://wa.me/${waNumber}?text=${encodeURIComponent('Halo Admin HitShare, saya ingin konfirmasi perpanjangan')}`} target="_blank" rel="noreferrer" className="hover:text-emerald-700 transition-colors">Perpanjangan Langganan</a></li>
-              </ul>
-            </div>
-
-            {/* Col 4: Bantuan & Kontak */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-bold text-neutral-900 uppercase tracking-wider">Bantuan &amp; Dukungan</h4>
-              <ul className="space-y-2 text-xs">
-                <li>
-                  <a
-                    href={`https://wa.me/${waNumber}?text=${waMsg}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 font-semibold text-emerald-700 hover:text-emerald-800"
-                  >
-                    <MessageCircle className="w-3.5 h-3.5" />
-                    Customer Support WhatsApp
-                  </a>
-                </li>
-                <li><span className="text-neutral-500">Respon cepat: &lt; 15 menit</span></li>
-                <li><span className="text-neutral-500">Monitoring status akun 24/7</span></li>
-                <li><span className="text-neutral-500">Garansi cookie selalu aktif</span></li>
-              </ul>
-            </div>
-          </div>
-
-          {/* Bottom Bar */}
-          <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-neutral-500">
-            <div className="flex items-center gap-2">
-              <img src="/icon.png" alt="HitShare" className="w-5 h-5 object-contain rounded-md" />
-              <span>© {CURRENT_YEAR} <strong>HitShare</strong>. Seluruh hak cipta dilindungi undang-undang.</span>
-            </div>
-            <div className="flex items-center gap-4 text-neutral-500">
-              <a href="#fitur" className="hover:text-neutral-800 transition-colors">Keamanan</a>
-              <span>•</span>
-              <a href="#harga" className="hover:text-neutral-800 transition-colors">Ketentuan Layanan</a>
-              <span>•</span>
-              <a href={`https://wa.me/${waNumber}`} target="_blank" rel="noreferrer" className="hover:text-neutral-800 transition-colors">Bantuan WhatsApp</a>
-            </div>
+            </motion.footer>
           </div>
         </div>
-      </footer>
+      </div>
     </div>
   );
 }
