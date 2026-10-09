@@ -28,15 +28,15 @@ export default function LandingPage() {
   const [plans, setPlans] = useState([]);
   const [plansLoading, setPlansLoading] = useState(true);
 
-  // Motion Sticky Reveal Footer Refs
+  // Motion.dev Footer Reveal (https://motion.dev/examples/react-footer-reveal)
+  // Sticky under-page footer that fades from transparent to opaque as scroll uncovers it
   const footerContainerRef = useRef(null);
   const { scrollYProgress } = useScroll({
     target: footerContainerRef,
     offset: ['start end', 'end end'],
   });
-  const footerOpacity = useTransform(scrollYProgress, [0, 0.6, 1], [0.4, 0.8, 1]);
-  const footerScale = useTransform(scrollYProgress, [0, 1], [0.96, 1]);
-  const footerY = useTransform(scrollYProgress, [0, 1], [40, 0]);
+  const footerOpacity = useTransform(scrollYProgress, [0, 0.4, 1], [0, 0.5, 1]);
+  const footerY = useTransform(scrollYProgress, [0, 1], [-60, 0]);
 
   useEffect(() => {
     // Fetch public settings
@@ -626,7 +626,6 @@ export default function LandingPage() {
             <motion.footer
               style={{
                 opacity: footerOpacity,
-                scale: footerScale,
                 y: footerY,
               }}
               className="bg-[#0D0E12] text-neutral-300 pt-16 pb-12 text-sm border-t border-neutral-800 shadow-2xl relative overflow-hidden"
