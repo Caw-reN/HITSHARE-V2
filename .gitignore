@@ -18,8 +18,8 @@ frontend/.env
 frontend/.env.*
 !frontend/.env.example
 
-# Frontend build outputs
-frontend/dist/
+# Frontend build outputs (tracked for instant deployment)
+# frontend/dist/
 frontend/dist-ssr/
 
 # Laravel Storage & Cache
