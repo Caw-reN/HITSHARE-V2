@@ -11,6 +11,9 @@ services:
     env_file:
       - .env
     environment:
+      CACHE_STORE: file
+      SESSION_DRIVER: file
+      QUEUE_CONNECTION: sync
       DB_HOST: db
       DB_PORT: 3306
       REDIS_HOST: redis
@@ -41,6 +44,9 @@ services:
     env_file:
       - .env
     environment:
+      CACHE_STORE: file
+      SESSION_DRIVER: file
+      QUEUE_CONNECTION: sync
       DB_HOST: db
       DB_PORT: 3306
       REDIS_HOST: redis
