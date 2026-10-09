@@ -21,6 +21,7 @@ services:
     volumes:
       - backend_storage:/var/www/backend/storage
       - backend_uploads:/var/www/backend/public/uploads
+      - backend_downloads:/var/www/backend/public/downloads
       - ./.env:/var/www/backend/.env
     depends_on:
       db:
@@ -73,6 +74,7 @@ services:
     volumes:
       - backend_storage:/var/www/backend/storage:ro
       - backend_uploads:/var/www/backend/public/uploads:ro
+      - backend_downloads:/var/www/backend/public/downloads:ro
       - ./docker/nginx/hitshare.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - app
@@ -132,6 +134,8 @@ volumes:
   backend_storage:
     driver: local
   backend_uploads:
+    driver: local
+  backend_downloads:
     driver: local
 
 networks:

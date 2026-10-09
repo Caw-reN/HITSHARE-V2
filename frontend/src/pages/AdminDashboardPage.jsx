@@ -286,6 +286,7 @@ export default function AdminDashboardPage() {
 
   // Settings state
   const [settingsData, setSettingsData] = useState({});
+  const [settingsSuccess, setSettingsSuccess] = useState('');
   const [uploadExtVersion, setUploadExtVersion] = useState('');
   const [uploadingExt, setUploadingExt] = useState(false);
   const [showSandboxApiKey, setShowSandboxApiKey] = useState(false);
@@ -816,12 +817,14 @@ export default function AdminDashboardPage() {
   const handleSaveGeneralSettings = async (e) => {
     e.preventDefault();
     setSavingSettings(true);
+    setSettingsSuccess('');
     try {
       await api.put('/admin/settings', {
         site_name: settingsData.site_name,
         whatsapp_number: settingsData.whatsapp_number,
         contact_message: settingsData.contact_message,
       });
+      setSettingsSuccess('Pengaturan umum berhasil disimpan');
       toast.success('Pengaturan umum berhasil disimpan');
       loadSettings();
     } catch (err) {

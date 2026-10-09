@@ -1,9 +1,10 @@
 #!/bin/bash
 set -e
 
-# Pastikan permission storage dan bootstrap/cache benar
-chown -R www-data:www-data /var/www/backend/storage /var/www/backend/bootstrap/cache
-chmod -R 775 /var/www/backend/storage /var/www/backend/bootstrap/cache
+# Pastikan direktori uploads, downloads, storage, dan bootstrap/cache ada dan permission benar
+mkdir -p /var/www/backend/public/uploads/icons /var/www/backend/public/downloads
+chown -R www-data:www-data /var/www/backend/public /var/www/backend/storage /var/www/backend/bootstrap/cache
+chmod -R 775 /var/www/backend/public /var/www/backend/storage /var/www/backend/bootstrap/cache
 
 # Buat symbolic link storage jika belum ada
 if [ ! -L /var/www/backend/public/storage ]; then
