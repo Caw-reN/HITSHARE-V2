@@ -306,7 +306,9 @@ class AdminAffiliateController extends Controller
             if (!file_exists($destDir)) {
                 mkdir($destDir, 0755, true);
             }
+            @chmod($destDir, 0755);
             $file->move($destDir, $filename);
+            @chmod($destDir . '/' . $filename, 0644);
             $proofPath = '/uploads/payout_proofs/' . $filename;
         }
 

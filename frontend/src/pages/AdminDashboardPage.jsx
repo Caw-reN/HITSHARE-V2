@@ -2730,16 +2730,24 @@ export default function AdminDashboardPage() {
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2.5 font-bold text-neutral-900 text-sm">
-                              <span className="w-8 h-8 rounded-xl bg-neutral-100 flex items-center justify-center text-neutral-700 text-sm font-mono shadow-2xs overflow-hidden shrink-0">
+                              <span className="w-8 h-8 rounded-xl bg-neutral-100 flex items-center justify-center text-neutral-700 text-sm font-mono shadow-2xs overflow-hidden shrink-0 relative">
                                 {isImageIcon(w.icon) ? (
-                                  <img
-                                    src={w.icon}
-                                    alt={w.name}
-                                    className="w-full h-full object-contain p-1"
-                                    onError={(e) => {
-                                      e.currentTarget.style.display = 'none';
-                                    }}
-                                  />
+                                  <>
+                                    <img
+                                      src={w.icon}
+                                      alt={w.name}
+                                      className="w-full h-full object-contain p-1"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                        if (e.currentTarget.nextElementSibling) {
+                                          e.currentTarget.nextElementSibling.style.display = 'block';
+                                        }
+                                      }}
+                                    />
+                                    <span style={{ display: 'none' }}>
+                                      {w.name ? w.name.charAt(0).toUpperCase() : '🌐'}
+                                    </span>
+                                  </>
                                 ) : (
                                   <span>{w.icon ? w.icon.charAt(0).toUpperCase() : '🌐'}</span>
                                 )}
@@ -4633,14 +4641,22 @@ export default function AdminDashboardPage() {
                 <div className="flex items-center gap-3 p-3 bg-[#FBFBF9] border border-[#DDDDCF] rounded-2xl mb-2.5">
                   <div className="w-12 h-12 rounded-xl bg-white border border-[#DDDDCF] flex items-center justify-center overflow-hidden shrink-0 shadow-2xs relative">
                     {isImageIcon(websiteForm.icon) ? (
-                      <img
-                        src={websiteForm.icon}
-                        alt="Icon Preview"
-                        className="w-full h-full object-contain p-1"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                        }}
-                      />
+                      <>
+                        <img
+                          src={websiteForm.icon}
+                          alt="Icon Preview"
+                          className="w-full h-full object-contain p-1"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            if (e.currentTarget.nextElementSibling) {
+                              e.currentTarget.nextElementSibling.style.display = 'block';
+                            }
+                          }}
+                        />
+                        <span style={{ display: 'none' }} className="text-base font-bold text-neutral-800 font-mono">
+                          {websiteForm.name ? websiteForm.name.charAt(0).toUpperCase() : '🌐'}
+                        </span>
+                      </>
                     ) : (
                       <span className="text-base font-bold text-neutral-800 font-mono">
                         {websiteForm.icon ? websiteForm.icon.charAt(0).toUpperCase() : '🌐'}

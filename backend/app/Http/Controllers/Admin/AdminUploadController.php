@@ -65,6 +65,7 @@ class AdminUploadController extends Controller
 
         $filename = "{$type}.{$ext}";
         $file->move($uploadsDir, $filename);
+        @chmod($uploadsDir . '/' . $filename, 0644);
 
         $fileUrl = "/uploads/{$filename}";
         $key = $type === 'favicon' ? 'favicon_url' : 'logo_url';
@@ -139,9 +140,11 @@ class AdminUploadController extends Controller
         if (!File::exists($iconsDir)) {
             File::makeDirectory($iconsDir, 0755, true);
         }
+        @chmod($iconsDir, 0755);
 
         $filename = 'icon_' . time() . '_' . uniqid() . '.' . $ext;
         $file->move($iconsDir, $filename);
+        @chmod($iconsDir . '/' . $filename, 0644);
 
         $fileUrl = "/uploads/icons/{$filename}";
 
@@ -184,6 +187,7 @@ class AdminUploadController extends Controller
 
         $targetZipPath = "{$downloadsDir}/{$filename}";
         $file->move($downloadsDir, $filename);
+        @chmod($targetZipPath, 0644);
         $fileUrl = '/downloads/extension.zip';
 
         Setting::set('extension_download_url', $fileUrl);
