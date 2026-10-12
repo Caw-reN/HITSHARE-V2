@@ -1,8 +1,20 @@
 import { create } from 'zustand';
 import api from '../api/client';
 
+const getInitialUser = () => {
+  try {
+    const raw = localStorage.getItem('hitshare_user');
+    if (!raw || raw === 'undefined' || raw === 'null') return null;
+    return JSON.parse(raw);
+  } catch (e) {
+    console.warn('Failed to parse hitshare_user from localStorage:', e);
+    localStorage.removeItem('hitshare_user');
+    return null;
+  }
+};
+
 export const useAuthStore = create((set, get) => ({
-  user: JSON.parse(localStorage.getItem('hitshare_user') || 'null'),
+  user: getInitialUser(),
   role: localStorage.getItem('hitshare_role') || null,
   token: localStorage.getItem('hitshare_token') || null,
   isAuthenticated: !!localStorage.getItem('hitshare_token'),
