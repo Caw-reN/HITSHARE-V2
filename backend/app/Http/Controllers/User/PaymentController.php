@@ -142,7 +142,18 @@ class PaymentController extends Controller
             'Authorization' => 'Bearer ' . $config['apiKey'],
             'Accept'        => 'application/json',
             'Content-Type'  => 'application/json',
-        ])->send($method, $url, [
+            'User-Agent'    => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) HitShare/2.0',
+        ])
+        ->withOptions([
+            'force_ip_resolve' => 'v4',
+            'curl' => [
+                CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
+            ],
+        ])
+        ->timeout(30)
+        ->connectTimeout(15)
+        ->retry(2, 500)
+        ->send($method, $url, [
             'json' => $body,
         ]);
 
