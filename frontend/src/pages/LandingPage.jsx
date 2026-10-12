@@ -115,29 +115,7 @@ export default function LandingPage() {
         <div className="absolute top-8 left-1/4 w-60 h-60 bg-amber-300/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute top-20 right-1/4 w-60 h-60 bg-emerald-300/10 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Subtle Decorative Geometric Elements (Spring & Small Shapes - Bergerak Terbang Luas, Tanpa Efek Pulse) */}
-        {/* 1. Spring Coil Shape (Kiri Atas - Bergerak Terbang Mengalir) */}
-        <div className="absolute left-4 sm:left-10 lg:left-24 top-10 sm:top-14 pointer-events-none select-none z-10 opacity-75 animate-fly-1">
-          <svg className="w-8 h-10 sm:w-10 sm:h-12 text-amber-500/85" viewBox="0 0 40 50" fill="none" stroke="currentColor" strokeWidth="2.75" strokeLinecap="round">
-            <path d="M12 8 C28 5 36 13 24 18 C8 23 8 28 24 32 C36 36 28 44 14 46" />
-            <circle cx="12" cy="8" r="2.5" fill="currentColor" />
-            <circle cx="14" cy="46" r="2.5" fill="currentColor" />
-          </svg>
-        </div>
 
-        {/* 3. Wavy Ribbon Squiggle (Kiri Tengah - Melayang Berkelana) */}
-        <div className="hidden sm:block absolute left-6 lg:left-20 top-72 lg:top-80 pointer-events-none select-none z-10 opacity-65 animate-fly-3">
-          <svg className="w-9 h-5 sm:w-11 sm:h-6 text-emerald-600/75" viewBox="0 0 44 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-            <path d="M2 14 C10 2 16 2 22 10 C28 18 34 18 42 6" />
-          </svg>
-        </div>
-
-        {/* 5. Mini Geometric 4-Point Starlet (Atas Tengah - Melayang Bebas) */}
-        <div className="hidden md:block absolute left-1/3 top-8 pointer-events-none select-none z-10 opacity-55 animate-fly-5">
-          <svg className="w-5 h-5 text-amber-400/90" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2 L13.8 9.2 L21 11 L13.8 12.8 L12 20 L10.2 12.8 L3 11 L10.2 9.2 Z" />
-          </svg>
-        </div>
 
         <div className="max-w-6xl mx-auto text-center space-y-7 relative z-10">
 
