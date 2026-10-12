@@ -125,28 +125,10 @@ export default function LandingPage() {
           </svg>
         </div>
 
-        {/* 2. Geometric Isometric Cube (Kanan Atas - Bergerak Melayang Melintasi Ruang) */}
-        <div className="absolute right-5 sm:right-12 lg:right-28 top-12 sm:top-16 pointer-events-none select-none z-10 opacity-70 animate-fly-2">
-          <svg className="w-7 h-7 sm:w-8 sm:h-8 text-neutral-400" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M16 3 L28 10 L28 22 L16 29 L4 22 L4 10 Z" fill="currentColor" fillOpacity="0.08" />
-            <path d="M16 3 L16 29" strokeOpacity="0.35" />
-            <path d="M4 10 L28 22" strokeOpacity="0.25" />
-            <path d="M28 10 L4 22" strokeOpacity="0.25" />
-          </svg>
-        </div>
-
         {/* 3. Wavy Ribbon Squiggle (Kiri Tengah - Melayang Berkelana) */}
         <div className="hidden sm:block absolute left-6 lg:left-20 top-72 lg:top-80 pointer-events-none select-none z-10 opacity-65 animate-fly-3">
           <svg className="w-9 h-5 sm:w-11 sm:h-6 text-emerald-600/75" viewBox="0 0 44 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
             <path d="M2 14 C10 2 16 2 22 10 C28 18 34 18 42 6" />
-          </svg>
-        </div>
-
-        {/* 4. Dotted Torus Ring (Kanan Tengah - Berputar Melayang Bebas) */}
-        <div className="hidden sm:block absolute right-6 lg:right-24 top-80 lg:top-96 pointer-events-none select-none z-10 opacity-70 animate-fly-4">
-          <svg className="w-7 h-7 sm:w-8 sm:h-8 text-amber-500/80" viewBox="0 0 32 32" fill="none">
-            <circle cx="16" cy="16" r="11" stroke="currentColor" strokeWidth="3" strokeDasharray="4 2" />
-            <circle cx="16" cy="16" r="4.5" fill="currentColor" fillOpacity="0.35" />
           </svg>
         </div>
 
