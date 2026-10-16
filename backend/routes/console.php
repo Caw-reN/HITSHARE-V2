@@ -17,3 +17,20 @@ Artisan::command('inspire', function () {
         ->where('expires_at', '<', now())
         ->update(['status' => 'expired']);
 })->everyTenMinutes()->name('orders:auto-expire-pending');
+
+// Periodic cookie health check (checks login status & expiry every hour)
+\Illuminate\Support\Facades\Schedule::call(function () {
+    app(\App\Services\CookieVerifierService::class)->verifyAllAccounts(true);
+})->hourly()->name('cookies:health-check');
+
+Artisan::command('cookies:health-check {--passive : Hanya periksa tanggal tanpa probe HTTP}', function () {
+    $passive = $this->option('passive');
+    $this->info('Memulai pengecekan status login & kadaluarsa cookie...');
+    $service = app(\App\Services\CookieVerifierService::class);
+    $stats = $service->verifyAllAccounts(!$passive);
+    $this->table(
+        ['Healthy', 'Expiring Soon', 'Logged Out', 'Expired', 'Empty'],
+        [[$stats['healthy'], $stats['expiring_soon'], $stats['logged_out'], $stats['expired'], $stats['empty']]]
+    );
+    $this->info('Pengecekan selesai!');
+})->purpose('Cek status kesehatan dan login cookie akun website secara berkala');

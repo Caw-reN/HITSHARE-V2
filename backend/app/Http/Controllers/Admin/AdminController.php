@@ -61,22 +61,32 @@ class AdminController extends Controller
                 ];
             });
 
-        // Cookie health (based on accounts)
+        // Cookie health (based on automated verification status)
         $accounts = WebsiteAccount::where('is_active', true)->get();
-        $cookieFresh = 0;
-        $cookieStale = 0;
+        $cookieHealthy = 0;
+        $cookieExpiringSoon = 0;
+        $cookieLoggedOut = 0;
+        $cookieExpired = 0;
         $cookieEmpty = 0;
 
         foreach ($accounts as $acc) {
-            $data = $acc->cookie_data;
-            if (empty($data) || $data === '[]') {
-                $cookieEmpty++;
-            } elseif ($acc->cookie_updated_at && $acc->cookie_updated_at->gt($staleThreshold)) {
-                $cookieFresh++;
+            $st = $acc->cookie_status ?: 'empty';
+            if ($st === 'healthy') {
+                $cookieHealthy++;
+            } elseif ($st === 'expiring_soon') {
+                $cookieExpiringSoon++;
+            } elseif ($st === 'logged_out') {
+                $cookieLoggedOut++;
+            } elseif ($st === 'expired') {
+                $cookieExpired++;
             } else {
-                $cookieStale++;
+                $cookieEmpty++;
             }
         }
+
+        $cookieIssuesCount = $cookieLoggedOut + $cookieExpired + $cookieExpiringSoon;
+        $cookieFresh = $cookieHealthy;
+        $cookieStale = $cookieIssuesCount;
 
         $expiringIn7 = User::where('is_active', true)
             ->whereNotNull('expires_at')
@@ -237,10 +247,15 @@ class AdminController extends Controller
             'trendLast7Days'  => $trendLast7Days,
             'trendLast30Days' => $trendLast30Days,
             'planBreakdown'   => $planBreakdown,
-            'cookieFresh'     => $cookieFresh,
-            'cookieStale'     => $cookieStale,
-            'cookieEmpty'     => $cookieEmpty,
-            'expiringIn7'     => $expiringIn7,
+            'cookieFresh'        => $cookieFresh,
+            'cookieStale'        => $cookieStale,
+            'cookieHealthy'      => $cookieHealthy,
+            'cookieLoggedOut'    => $cookieLoggedOut,
+            'cookieExpired'      => $cookieExpired,
+            'cookieExpiringSoon' => $cookieExpiringSoon,
+            'cookieEmpty'        => $cookieEmpty,
+            'cookieIssuesCount'  => $cookieIssuesCount,
+            'expiringIn7'        => $expiringIn7,
             'ordersStats'     => [
                 'totalRevenue'      => $totalRevenue,
                 'totalGrossRevenue' => $totalGrossRevenue,

@@ -38,6 +38,9 @@ Route::post('/register/validate-voucher',                          [PaymentContr
 Route::post('/payment/webhook',          [PaymentController::class, 'webhook']);
 Route::post('/payment/webhook/paymenku', [PaymentController::class, 'webhook']);
 
+// Telegram Bot Webhook (Two-Way Interactive Commands: /status, /check, /myid, /help)
+Route::post('/telegram/webhook', [\App\Http\Controllers\Telegram\TelegramWebhookController::class, 'handle']);
+
 // Unified login (admin + user)
 Route::middleware('throttle:login')->post('/unified-login', [AuthController::class, 'unifiedLogin']);
 
@@ -102,11 +105,14 @@ Route::middleware(['auth:sanctum', 'admin.auth'])->prefix('admin')->group(functi
     Route::post('/websites',           [AdminWebsiteController::class, 'store']);
     Route::put('/websites/{id}',       [AdminWebsiteController::class, 'update']);
     Route::delete('/websites/{id}',    [AdminWebsiteController::class, 'destroy']);
-    // Website accounts (cookies)
-    Route::get('/websites/{id}/accounts',        [AdminWebsiteController::class, 'accounts']);
-    Route::post('/websites/{id}/accounts',       [AdminWebsiteController::class, 'addAccount']);
-    Route::put('/websites/{id}/accounts/{accId}',[AdminWebsiteController::class, 'updateAccount']);
-    Route::delete('/websites/{id}/accounts/{accId}', [AdminWebsiteController::class, 'destroyAccount']);
+    // Website accounts (cookies) & health checks
+    Route::get('/cookies/health-summary',                  [AdminWebsiteController::class, 'cookieHealthSummary']);
+    Route::post('/cookies/verify-all',                     [AdminWebsiteController::class, 'verifyAllAccountsHealth']);
+    Route::get('/websites/{id}/accounts',                  [AdminWebsiteController::class, 'accounts']);
+    Route::post('/websites/{id}/accounts',                 [AdminWebsiteController::class, 'addAccount']);
+    Route::put('/websites/{id}/accounts/{accId}',          [AdminWebsiteController::class, 'updateAccount']);
+    Route::delete('/websites/{id}/accounts/{accId}',       [AdminWebsiteController::class, 'destroyAccount']);
+    Route::post('/websites/{id}/accounts/{accId}/verify',  [AdminWebsiteController::class, 'verifyAccountHealth']);
 
     // Categories CRUD
     Route::get('/categories',          [AdminCategoryController::class, 'index']);
@@ -156,6 +162,11 @@ Route::middleware(['auth:sanctum', 'admin.auth'])->prefix('admin')->group(functi
     // Settings
     Route::get('/settings',   [AdminSettingsController::class, 'index']);
     Route::put('/settings',   [AdminSettingsController::class, 'update']);
+
+    // Telegram Bot & Notifications
+    Route::post('/telegram/test',        [AdminSettingsController::class, 'testTelegram']);
+    Route::get('/telegram/status',       [AdminSettingsController::class, 'getTelegramBotInfo']);
+    Route::post('/telegram/set-webhook', [AdminSettingsController::class, 'setTelegramWebhook']);
 
     // Uploads
     Route::post('/upload/brand/{type}', [AdminUploadController::class, 'uploadBrand']);

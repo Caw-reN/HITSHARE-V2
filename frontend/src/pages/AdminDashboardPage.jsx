@@ -45,12 +45,57 @@ import {
   Clock,
   Calendar,
   ArrowUpRight,
+  RefreshCw,
+  AlertTriangle,
+  Zap,
+  Bot,
+  Send,
+  MessageSquare,
 } from 'lucide-react';
 import AdminAffiliateTab from '../components/AdminAffiliateTab';
 import AdminRevenueChart from '../components/AdminRevenueChart';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const TODAY_FORMATTED = new Date().toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' });
+
+function formatTimeAgo(isoString) {
+  if (!isoString) return 'Belum pernah dicek';
+  try {
+    const date = new Date(isoString);
+    const now = new Date();
+    const diffSec = Math.floor((now - date) / 1000);
+    if (diffSec < 60) return 'Baru saja';
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin} menit lalu`;
+    const diffHours = Math.floor(diffMin / 60);
+    if (diffHours < 24) return `${diffHours} jam lalu`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays} hari lalu`;
+  } catch {
+    return 'Waktu tidak valid';
+  }
+}
+
+function getCookieCardStyle(acc) {
+  if (!acc.is_active) {
+    return 'bg-neutral-100/80 border border-neutral-300/80 opacity-70 text-neutral-600 shadow-2xs';
+  }
+  const st = acc.cookie_status;
+  if (st === 'logged_out' || st === 'expired') {
+    // 🔴 Card Merah: Sesi terputus/logout atau masa aktif kadaluarsa
+    return 'bg-gradient-to-b from-rose-50/95 to-rose-100/50 border-2 border-rose-300 text-rose-950 shadow-sm shadow-rose-200/50 hover:border-rose-400';
+  }
+  if (st === 'expiring_soon') {
+    // 🟡 Card Kuning/Amber: Masa aktif akan segera habis (< 48 jam)
+    return 'bg-gradient-to-b from-amber-50/95 to-amber-100/50 border-2 border-amber-300 text-amber-950 shadow-sm shadow-amber-200/50 hover:border-amber-400';
+  }
+  if (st === 'healthy') {
+    // 🟢 Card Hijau/Emerald: Masih login & aktif normal
+    return 'bg-gradient-to-b from-white to-emerald-50/25 border-2 border-emerald-300/90 text-neutral-900 shadow-xs hover:border-emerald-500 hover:shadow-md';
+  }
+  // ⚪ Default / Belum dicek / Cookie Kosong
+  return 'bg-white border border-[#E8E8DF] text-neutral-800 shadow-xs hover:border-neutral-300';
+}
 
 function CustomSelect({
   value,
@@ -241,6 +286,9 @@ export default function AdminDashboardPage() {
     is_active: true,
   });
   const [cookieSearch, setCookieSearch] = useState('');
+  const [cookieSummary, setCookieSummary] = useState(null);
+  const [verifyingAllCookies, setVerifyingAllCookies] = useState(false);
+  const [verifyingCookieId, setVerifyingCookieId] = useState(null);
 
   // Orders state
   const [orders, setOrders] = useState([]);
@@ -299,6 +347,10 @@ export default function AdminDashboardPage() {
   const [savingVersion, setSavingVersion] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingFavicon, setUploadingFavicon] = useState(false);
+  const [telegramTesting, setTelegramTesting] = useState(false);
+  const [telegramSyncing, setTelegramSyncing] = useState(false);
+  const [telegramBotInfo, setTelegramBotInfo] = useState(null);
+  const [showTelegramToken, setShowTelegramToken] = useState(false);
 
   // Logs state
   const [logs, setLogs] = useState([]);
@@ -318,12 +370,14 @@ export default function AdminDashboardPage() {
   const loadWebsites = async (silent = false) => {
     if (!silent) setTabLoading(true);
     try {
-      const [wRes, cRes] = await Promise.all([
+      const [wRes, cRes, hRes] = await Promise.all([
         api.get('/admin/websites'),
         api.get('/admin/categories'),
+        api.get('/admin/cookies/health-summary').catch(() => ({ data: null })),
       ]);
       setWebsites(wRes.data || []);
       setCategories(cRes.data || []);
+      if (hRes.data) setCookieSummary(hRes.data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -542,7 +596,17 @@ export default function AdminDashboardPage() {
     setTabLoading(true);
     try {
       const res = await api.get('/admin/settings');
-      setSettingsData(res.data || {});
+      const data = res.data || {};
+      setSettingsData(data);
+      if (data.telegram_bot_token) {
+        api.get('/admin/telegram/status', {
+          params: { bot_token: data.telegram_bot_token },
+        }).then((statusRes) => {
+          setTelegramBotInfo(statusRes.data);
+        }).catch(() => {
+          setTelegramBotInfo(null);
+        });
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -691,7 +755,7 @@ export default function AdminDashboardPage() {
       loadVouchers();
       loadPlans(true);
     }
-    if (['settings', 'payment', 'uploads'].includes(tab)) loadSettings();
+    if (['settings', 'payment', 'uploads', 'telegram'].includes(tab)) loadSettings();
     if (tab === 'logs') loadLogs();
   };
 
@@ -823,16 +887,100 @@ export default function AdminDashboardPage() {
         site_name: settingsData.site_name,
         whatsapp_number: settingsData.whatsapp_number,
         contact_message: settingsData.contact_message,
+        telegram_bot_token: settingsData.telegram_bot_token ?? '',
+        telegram_chat_id: settingsData.telegram_chat_id ?? '',
+        telegram_notify_enabled: settingsData.telegram_notify_enabled === false || settingsData.telegram_notify_enabled === 'false' ? 'false' : 'true',
       });
       setSettingsSuccess('Pengaturan umum berhasil disimpan');
       toast.success('Pengaturan umum berhasil disimpan');
       loadSettings();
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Gagal menyimpan pengaturan umum');
+      toast.error(err.response?.data?.error || 'Gagal menyimpan pengaturan');
     } finally {
       setSavingSettings(false);
     }
   };
+
+  // Save Telegram bot settings
+  const handleSaveTelegramSettings = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    setSavingSettings(true);
+    try {
+      await api.put('/admin/settings', {
+        telegram_bot_token: settingsData.telegram_bot_token ?? '',
+        telegram_chat_id: settingsData.telegram_chat_id ?? '',
+        telegram_notify_enabled: settingsData.telegram_notify_enabled === false || settingsData.telegram_notify_enabled === 'false' ? 'false' : 'true',
+      });
+      toast.success('Konfigurasi Bot Telegram berhasil disimpan!');
+      loadSettings();
+      if (settingsData.telegram_bot_token) {
+        handleCheckTelegramStatus();
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Gagal menyimpan konfigurasi Telegram');
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  const handleTestTelegram = async () => {
+    if (!settingsData.telegram_bot_token || !settingsData.telegram_chat_id) {
+      toast.error('Masukkan Token Bot dan Chat ID Telegram terlebih dahulu');
+      return;
+    }
+    setTelegramTesting(true);
+    try {
+      const res = await api.post('/admin/telegram/test', {
+        bot_token: settingsData.telegram_bot_token,
+        chat_id: settingsData.telegram_chat_id,
+      });
+      toast.success(res.data?.message || 'Pesan uji coba berhasil terkirim ke Telegram!');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Gagal mengirim pesan uji coba ke Telegram');
+    } finally {
+      setTelegramTesting(false);
+    }
+  };
+
+  const handleSetTelegramWebhook = async () => {
+    if (!settingsData.telegram_bot_token) {
+      toast.error('Masukkan Token Bot Telegram terlebih dahulu');
+      return;
+    }
+    if (typeof window !== 'undefined' && window.location.protocol !== 'https:') {
+      toast.error(
+        'Webhook Telegram memerlukan protokol HTTPS resmi. Di localhost (HTTP), fitur Webhook belum dapat dihubungkan langsung oleh Telegram. Namun jangan khawatir, notifikasi otomatis peringatan cookie tetap berjalan 100% normal tanpa webhook!'
+      );
+      return;
+    }
+    setTelegramSyncing(true);
+    try {
+      const res = await api.post('/admin/telegram/set-webhook', {
+        bot_token: settingsData.telegram_bot_token,
+      });
+      toast.success(res.data?.message || 'Webhook Telegram berhasil dihubungkan!');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Gagal mendaftarkan webhook Telegram');
+    } finally {
+      setTelegramSyncing(false);
+    }
+  };
+
+  const handleCheckTelegramStatus = async () => {
+    if (!settingsData.telegram_bot_token) return;
+    try {
+      const res = await api.get('/admin/telegram/status', {
+        params: { bot_token: settingsData.telegram_bot_token },
+      });
+      setTelegramBotInfo(res.data);
+      if (res.data?.username) {
+        toast.success(`Bot aktif: @${res.data.username}`);
+      }
+    } catch {
+      setTelegramBotInfo(null);
+    }
+  };
+
 
   // Save payment settings (Paymenku Dual Mode)
   const handleSavePaymentSettings = async (e) => {
@@ -1222,6 +1370,66 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleVerifyAllCookies = async () => {
+    setVerifyingAllCookies(true);
+    try {
+      const res = await api.post('/admin/cookies/verify-all');
+      await loadWebsites(true);
+      const summary = res.data?.summary || {};
+      const stats = res.data?.stats || {};
+      const issues = (stats.logged_out || 0) + (stats.expired || 0);
+      if (issues > 0) {
+        toast.error(`Pemeriksaan selesai: ${issues} akun terdeteksi LOGOUT atau KADALUARSA!`);
+      } else {
+        toast.success(`Semua cookie terverifikasi! (${stats.healthy || 0} akun aktif login)`);
+      }
+      if (summary) setCookieSummary(summary);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Gagal memverifikasi status login cookie');
+    } finally {
+      setVerifyingAllCookies(false);
+    }
+  };
+
+  const handleVerifySingleCookie = async (websiteId, accId, accLabel) => {
+    setVerifyingCookieId(accId);
+    try {
+      const res = await api.post(`/admin/websites/${websiteId}/accounts/${accId}/verify`);
+      const updatedAcc = res.data?.account;
+      if (updatedAcc) {
+        setWebsites((prev) =>
+          prev.map((w) => {
+            if (w.id !== websiteId) return w;
+            return {
+              ...w,
+              accounts: (w.accounts || []).map((a) =>
+                a.id === accId ? { ...a, ...updatedAcc } : a
+              ),
+            };
+          })
+        );
+      }
+      const st = updatedAcc?.cookie_status;
+      if (st === 'logged_out') {
+        toast.error(`Akun ${accLabel || ''} terdeteksi LOGOUT! Harap perbarui cookie.`);
+      } else if (st === 'expired') {
+        toast.error(`Cookie akun ${accLabel || ''} telah KADALUARSA!`);
+      } else if (st === 'expiring_soon') {
+        toast.info(`Akun ${accLabel || ''} masih login, namun segera kadaluarsa.`);
+      } else if (st === 'healthy') {
+        toast.success(`Akun ${accLabel || ''} terverifikasi MASIH LOGIN!`);
+      } else {
+        toast.info(res.data?.message || 'Pemeriksaan selesai');
+      }
+      api.get('/admin/cookies/health-summary').then((r) => setCookieSummary(r.data)).catch(() => {});
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Gagal memeriksa status login akun');
+    } finally {
+      setVerifyingCookieId(null);
+    }
+  };
+
+
   return (
     <div className="min-h-screen bg-[#F8F8F5] text-neutral-800 flex flex-col">
       {/* Top Header */}
@@ -1469,7 +1677,7 @@ export default function AdminDashboardPage() {
             <span>Afiliasi</span>
           </button>
 
-          {/* Dropdown Menu for Pengaturan, Pembayaran, Upload, Logs */}
+          {/* Dropdown Menu for Pengaturan, Pembayaran, Telegram, Upload, Logs */}
           <div className="relative" ref={settingsDropdownRef}>
             <button
               type="button"
@@ -1480,13 +1688,15 @@ export default function AdminDashboardPage() {
                 setTransactionDropdownOpen(false);
               }}
               className={`px-3.5 py-1.5 rounded-xl flex items-center gap-2 transition-all min-h-[36px] cursor-pointer whitespace-nowrap ${
-                ['payment', 'settings', 'uploads', 'logs'].includes(activeTab)
+                ['payment', 'settings', 'telegram', 'uploads', 'logs'].includes(activeTab)
                   ? 'bg-[#F2F2EC] text-neutral-900 font-bold shadow-2xs'
                   : 'hover:text-neutral-900 hover:bg-[#F9F9F6]'
               }`}
             >
               {activeTab === 'payment' ? (
                 <Wallet className="w-4 h-4 text-neutral-800" />
+              ) : activeTab === 'telegram' ? (
+                <Bot className="w-4 h-4 text-neutral-800" />
               ) : activeTab === 'uploads' ? (
                 <Upload className="w-4 h-4 text-neutral-800" />
               ) : activeTab === 'logs' ? (
@@ -1497,6 +1707,8 @@ export default function AdminDashboardPage() {
               <span className="whitespace-nowrap">
                 {activeTab === 'payment'
                   ? 'Pembayaran'
+                  : activeTab === 'telegram'
+                  ? 'Bot Telegram'
                   : activeTab === 'uploads'
                   ? 'Upload Ekstensi'
                   : activeTab === 'logs'
@@ -1543,6 +1755,22 @@ export default function AdminDashboardPage() {
                   <div>
                     <div className="font-bold text-sm leading-tight">Pengaturan Umum</div>
                     <div className="text-xs text-neutral-500 leading-tight">Info Situs & Kontak WhatsApp</div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleTabChange('telegram')}
+                  className={`w-full px-3.5 py-2.5 text-left rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer min-h-[40px] ${
+                    activeTab === 'telegram'
+                      ? 'bg-[#F2F2EC] text-neutral-900 font-bold'
+                      : 'text-neutral-600 hover:bg-[#F9F9F6] hover:text-neutral-900'
+                  }`}
+                >
+                  <Bot className="w-4 h-4 text-neutral-600 shrink-0" />
+                  <div>
+                    <div className="font-bold text-sm leading-tight">Bot Telegram</div>
+                    <div className="text-xs text-neutral-500 leading-tight">Notifikasi Peringatan Cookie</div>
                   </div>
                 </button>
 
@@ -2107,17 +2335,37 @@ export default function AdminDashboardPage() {
                 </div>
 
                 {/* Status Cookie */}
-                <div className="bg-white p-4.5 rounded-3xl border border-[#E8E8DF] shadow-bone flex items-center justify-between">
+                <div
+                  onClick={() => handleTabChange('cookies')}
+                  className="bg-white p-4.5 rounded-3xl border border-[#E8E8DF] shadow-bone flex items-center justify-between cursor-pointer hover:border-neutral-400 transition-all group"
+                  title="Klik untuk membuka tab Cookie Akun"
+                >
                   <div className="space-y-0.5">
-                    <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider block">Kesehatan Cookie</span>
-                    <div className="text-xl font-black text-emerald-600">
-                      {stats.cookieFresh} Fresh
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider block">Kesehatan Cookie</span>
+                      <ArrowUpRight className="w-3 h-3 text-neutral-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
-                    <div className="text-xs text-amber-600 font-semibold">
-                      {stats.cookieStale} Perlu Cek • {stats.cookieEmpty} Kosong
+                    <div className="text-xl font-black text-emerald-600 flex items-center gap-1.5">
+                      <span>{stats.cookieHealthy ?? stats.cookieFresh ?? 0}</span>
+                      <span className="text-xs font-semibold text-emerald-700">Login Aktif</span>
+                    </div>
+                    <div className="text-xs font-semibold flex items-center gap-1.5 flex-wrap">
+                      {(stats.cookieIssuesCount ?? stats.cookieStale ?? 0) > 0 ? (
+                        <span className="text-rose-600 font-bold">
+                          {stats.cookieIssuesCount ?? stats.cookieStale} Logout/Expired
+                        </span>
+                      ) : (
+                        <span className="text-neutral-500 font-medium">0 Masalah</span>
+                      )}
+                      <span className="text-neutral-300">•</span>
+                      <span className="text-neutral-400 font-medium">{stats.cookieEmpty ?? 0} Kosong</span>
                     </div>
                   </div>
-                  <div className="w-10 h-10 rounded-2xl bg-[#F4F4EE] flex items-center justify-center text-neutral-700">
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-colors ${
+                    (stats.cookieIssuesCount ?? stats.cookieStale ?? 0) > 0
+                      ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                      : 'bg-[#F4F4EE] text-neutral-700'
+                  }`}>
                     <Cookie className="w-5 h-5" />
                   </div>
                 </div>
@@ -2605,22 +2853,37 @@ export default function AdminDashboardPage() {
                 </span>
               </button>
 
-              <button
-                onClick={() => handleTabChange('cookies')}
-                className={`px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2.5 transition-all min-h-[42px] cursor-pointer ${
-                  activeTab === 'cookies'
-                    ? 'bg-neutral-900 text-white shadow-xs'
-                    : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
-                }`}
-              >
-                <Cookie className="w-4.5 h-4.5" />
-                <span>Cookie Akun</span>
-                <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                  activeTab === 'cookies' ? 'bg-neutral-800 text-neutral-200' : 'bg-neutral-200 text-neutral-700'
-                }`}>
-                  {websites.reduce((acc, w) => acc + (w.accounts?.length || 0), 0)}
-                </span>
-              </button>
+              {(() => {
+                const allAccounts = websites.flatMap((w) => w.accounts || []);
+                const criticalCount = allAccounts.filter(
+                  (a) => a.is_active && ['logged_out', 'expired', 'expiring_soon'].includes(a.cookie_status)
+                ).length;
+
+                return (
+                  <button
+                    onClick={() => handleTabChange('cookies')}
+                    className={`px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2.5 transition-all min-h-[42px] cursor-pointer ${
+                      activeTab === 'cookies'
+                        ? 'bg-neutral-900 text-white shadow-xs'
+                        : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
+                    }`}
+                  >
+                    <Cookie className="w-4.5 h-4.5" />
+                    <span>Cookie Akun</span>
+                    {criticalCount > 0 ? (
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-500 text-white animate-pulse shadow-xs">
+                        {criticalCount} Perlu Cek
+                      </span>
+                    ) : (
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                        activeTab === 'cookies' ? 'bg-neutral-800 text-neutral-200' : 'bg-neutral-200 text-neutral-700'
+                      }`}>
+                        {allAccounts.length}
+                      </span>
+                    )}
+                  </button>
+                );
+              })()}
             </div>
           </div>
         )}
@@ -2933,18 +3196,95 @@ export default function AdminDashboardPage() {
             <div className="bg-white p-6 rounded-3xl border border-[#E8E8DF] shadow-bone space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h3 className="text-base font-bold text-neutral-900">Manajemen Cookie Akun</h3>
-                  <p className="text-xs text-neutral-500">
-                    Cookie dikelompokkan berdasarkan website yang dipilih. Dilengkapi toggle ON / OFF langsung untuk tiap akun.
+                  <h3 className="text-base font-bold text-neutral-900 flex items-center gap-2">
+                    <span>Manajemen Cookie Akun</span>
+                    {cookieSummary && (cookieSummary.logged_out + cookieSummary.expired > 0) && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                        <AlertTriangle className="w-3 h-3 text-rose-600" />
+                        {cookieSummary.logged_out + cookieSummary.expired} Bermasalah
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-xs text-neutral-500 mt-0.5">
+                    Warna kartu langsung menandakan status kesehatan sesi login: 🔴 Merah (Logout / Kadaluarsa), 🟡 Kuning (Segera Habis), 🟢 Hijau (Aktif & Valid).
                   </p>
                 </div>
-                <button
-                  onClick={() => handleOpenCreateCookie()}
-                  className="px-5 py-2.5 text-xs sm:text-sm font-bold text-white bg-neutral-900 hover:bg-neutral-800 rounded-2xl flex items-center gap-2 self-start sm:self-auto transition-all shadow-sm min-h-[44px] cursor-pointer"
-                >
-                  <Plus className="w-4.5 h-4.5" /> Tambah Cookie Baru
-                </button>
+                <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={handleVerifyAllCookies}
+                    disabled={verifyingAllCookies}
+                    className="px-4 py-2.5 text-xs sm:text-sm font-bold text-neutral-800 bg-[#F4F4EE] hover:bg-[#EAEAE0] border border-[#DDDDCF] rounded-2xl flex items-center gap-2 transition-all shadow-2xs min-h-[44px] cursor-pointer disabled:opacity-50"
+                    title="Pengecekan berkala: Periksa apakah semua akun masih aktif login sekarang"
+                  >
+                    <Zap className={`w-4 h-4 text-amber-600 ${verifyingAllCookies ? 'animate-spin' : ''}`} />
+                    <span>{verifyingAllCookies ? 'Mengecek Sesi Akun...' : 'Cek Status Semua Akun'}</span>
+                  </button>
+                  <button
+                    onClick={() => handleOpenCreateCookie()}
+                    className="px-5 py-2.5 text-xs sm:text-sm font-bold text-white bg-neutral-900 hover:bg-neutral-800 rounded-2xl flex items-center gap-2 transition-all shadow-sm min-h-[44px] cursor-pointer"
+                  >
+                    <Plus className="w-4.5 h-4.5" /> Tambah Cookie Baru
+                  </button>
+                </div>
               </div>
+
+              {/* Warning Alert Banner jika ada akun yang Logout atau Kadaluarsa */}
+              {(() => {
+                const allAccounts = websites.flatMap((w) => w.accounts || []);
+                const criticalAccs = allAccounts.filter(
+                  (a) => a.is_active && ['logged_out', 'expired', 'expiring_soon'].includes(a.cookie_status)
+                );
+                if (criticalAccs.length === 0) return null;
+
+                const loggedOutCount = criticalAccs.filter((a) => a.cookie_status === 'logged_out').length;
+                const expiredCount = criticalAccs.filter((a) => a.cookie_status === 'expired').length;
+                const expiringSoonCount = criticalAccs.filter((a) => a.cookie_status === 'expiring_soon').length;
+
+                return (
+                  <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-rose-50 via-amber-50/70 to-rose-50 border-2 border-rose-300 text-rose-950 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+                    <div className="flex items-start gap-3.5">
+                      <div className="w-10 h-10 rounded-xl bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                        <AlertTriangle className="w-5 h-5 animate-pulse" />
+                      </div>
+                      <div className="space-y-1">
+                        <h4 className="font-bold text-sm sm:text-base text-rose-950">
+                          Peringatan: {criticalAccs.length} Akun Butuh Penanganan Cookie Segera!
+                        </h4>
+                        <div className="text-xs text-rose-800 flex flex-wrap gap-x-3 gap-y-1">
+                          {loggedOutCount > 0 && (
+                            <span className="font-semibold text-rose-700">
+                              • {loggedOutCount} Akun Terdeteksi Logout (Keluar Sesi)
+                            </span>
+                          )}
+                          {expiredCount > 0 && (
+                            <span className="font-semibold text-rose-700">
+                              • {expiredCount} Akun Telah Kadaluarsa
+                            </span>
+                          )}
+                          {expiringSoonCount > 0 && (
+                            <span className="font-semibold text-amber-700">
+                              • {expiringSoonCount} Akun Segera Habis (&lt; 48 Jam)
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-rose-700/90 leading-tight">
+                          Kartu akun di bawah langsung berubah warna merah/kuning. Klik tombol "Edit Cookie" pada kartu akun untuk memperbarui JSON cookie baru.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleVerifyAllCookies}
+                      disabled={verifyingAllCookies}
+                      className="px-4 py-2.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl flex items-center gap-2 self-start md:self-auto shrink-0 transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                    >
+                      <Zap className={`w-3.5 h-3.5 ${verifyingAllCookies ? 'animate-spin' : ''}`} />
+                      {verifyingAllCookies ? 'Mengecek...' : 'Cek Ulang Semua Akun'}
+                    </button>
+                  </div>
+                );
+              })()}
 
               {/* Search input */}
               <div className="relative w-full sm:w-80">
@@ -3050,26 +3390,96 @@ export default function AdminDashboardPage() {
                               {accountsList.map((acc) => (
                                 <div
                                   key={acc.id}
-                                  className={`p-5 sm:p-6 rounded-2xl border bg-white space-y-4 transition-all flex flex-col justify-between ${
-                                    acc.is_active
-                                      ? 'border-[#E8E8DF] shadow-xs hover:shadow-md'
-                                      : 'border-neutral-200 bg-neutral-50 opacity-70'
-                                  }`}
+                                  className={`p-5 sm:p-6 rounded-2xl transition-all flex flex-col justify-between space-y-4 ${getCookieCardStyle(acc)}`}
                                 >
                                   <div className="space-y-3">
+                                    {/* Header Row: Label & Cookie Bytes */}
                                     <div className="flex items-center justify-between gap-2">
-                                      <div className="font-bold text-sm text-neutral-900 flex items-center gap-2 min-w-0">
-                                        <Cookie className="w-4 h-4 text-amber-600 shrink-0" />
+                                      <div className="font-bold text-sm flex items-center gap-2 min-w-0">
+                                        <Cookie
+                                          className={`w-4 h-4 shrink-0 ${
+                                            acc.cookie_status === 'logged_out' || acc.cookie_status === 'expired'
+                                              ? 'text-rose-600'
+                                              : acc.cookie_status === 'expiring_soon'
+                                              ? 'text-amber-600'
+                                              : acc.cookie_status === 'healthy'
+                                              ? 'text-emerald-600'
+                                              : 'text-neutral-500'
+                                          }`}
+                                        />
                                         <span className="truncate">{acc.label}</span>
                                       </div>
-                                      <span className="text-xs font-mono text-neutral-400 shrink-0">
+                                      <span className="text-xs font-mono opacity-60 shrink-0">
                                         {(acc.cookie_bytes || acc.cookie_data?.length || 0).toLocaleString()} B
                                       </span>
                                     </div>
 
-                                    {/* Toggle Switch */}
+                                    {/* Informative Status Message Box (NO BADGES - directly colored container) */}
+                                    {acc.cookie_status === 'logged_out' && (
+                                      <div className="p-3 rounded-xl bg-rose-200/50 border border-rose-300 text-rose-950 space-y-1">
+                                        <div className="flex items-center gap-1.5 font-bold text-xs text-rose-900">
+                                          <AlertTriangle className="w-3.5 h-3.5 text-rose-700 shrink-0" />
+                                          <span>Sesi Logout / Terputus</span>
+                                        </div>
+                                        <p className="text-[11px] leading-tight text-rose-800">
+                                          {acc.health_message || 'Akun terdeteksi logout dari sistem. Harap masukkan cookie baru.'}
+                                        </p>
+                                      </div>
+                                    )}
+
+                                    {acc.cookie_status === 'expired' && (
+                                      <div className="p-3 rounded-xl bg-rose-200/50 border border-rose-300 text-rose-950 space-y-1">
+                                        <div className="flex items-center gap-1.5 font-bold text-xs text-rose-900">
+                                          <AlertTriangle className="w-3.5 h-3.5 text-rose-700 shrink-0" />
+                                          <span>Cookie Telah Kadaluarsa</span>
+                                        </div>
+                                        <p className="text-[11px] leading-tight text-rose-800">
+                                          {acc.health_message || 'Masa berlaku cookie telah habis. Harap ganti dengan cookie baru.'}
+                                        </p>
+                                      </div>
+                                    )}
+
+                                    {acc.cookie_status === 'expiring_soon' && (
+                                      <div className="p-3 rounded-xl bg-amber-200/50 border border-amber-300 text-amber-950 space-y-1">
+                                        <div className="flex items-center gap-1.5 font-bold text-xs text-amber-900">
+                                          <Clock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                                          <span>Segera Kadaluarsa (&lt; 48 Jam)</span>
+                                        </div>
+                                        <p className="text-[11px] leading-tight text-amber-800">
+                                          {acc.health_message || 'Cookie masih login, namun masa berlaku hampir habis.'}
+                                        </p>
+                                      </div>
+                                    )}
+
+                                    {acc.cookie_status === 'healthy' && (
+                                      <div className="p-3 rounded-xl bg-emerald-100/60 border border-emerald-200 text-emerald-950 space-y-1">
+                                        <div className="flex items-center gap-1.5 font-bold text-xs text-emerald-900">
+                                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                          <span>Sesi Aktif & Masih Login</span>
+                                        </div>
+                                        <p className="text-[11px] leading-tight text-emerald-700">
+                                          {acc.health_message || 'Akun terverifikasi masih login dengan normal.'}
+                                        </p>
+                                      </div>
+                                    )}
+
+                                    {(!acc.cookie_status || acc.cookie_status === 'empty') && (
+                                      <div className="p-3 rounded-xl bg-neutral-100/70 border border-neutral-200 text-neutral-600 space-y-0.5">
+                                        <div className="flex items-center gap-1.5 font-bold text-xs text-neutral-700">
+                                          <Cookie className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                                          <span>Cookie Belum Diisi</span>
+                                        </div>
+                                        <p className="text-[11px] leading-tight text-neutral-500">
+                                          Belum ada cookie JSON valid yang dimasukkan untuk akun ini.
+                                        </p>
+                                      </div>
+                                    )}
+
+                                    {/* Last Checked Time & Toggle Switch */}
                                     <div className="flex items-center justify-between pt-1">
-                                      <span className="text-xs text-neutral-500 font-semibold">Status Cookie</span>
+                                      <span className="text-[11px] text-neutral-500 font-medium">
+                                        Cek: {formatTimeAgo(acc.last_checked_at)}
+                                      </span>
                                       <button
                                         type="button"
                                         onClick={() => handleToggleCookieActive(w.id, acc)}
@@ -3079,13 +3489,13 @@ export default function AdminDashboardPage() {
                                           {acc.is_active ? 'Aktif' : 'Nonaktif'}
                                         </span>
                                         <div
-                                          className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                                          className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
                                             acc.is_active ? 'bg-emerald-600' : 'bg-neutral-300'
                                           }`}
                                         >
                                           <span
-                                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                                              acc.is_active ? 'translate-x-5' : 'translate-x-0'
+                                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                              acc.is_active ? 'translate-x-4' : 'translate-x-0'
                                             }`}
                                           />
                                         </div>
@@ -3093,20 +3503,34 @@ export default function AdminDashboardPage() {
                                     </div>
                                   </div>
 
-                                  <div className="flex items-center justify-between pt-3.5 border-t border-[#F0F0E8] mt-2">
+                                  {/* Action Buttons: Cek Login, Edit Cookie, Hapus */}
+                                  <div className="flex items-center justify-between pt-3 border-t border-neutral-200/60 mt-2 gap-2">
                                     <button
-                                      onClick={() => handleOpenEditCookie(w, acc)}
-                                      className="px-3.5 py-1.5 text-xs font-bold text-neutral-800 bg-[#F5F5EE] hover:bg-[#EAEAE0] rounded-xl transition-all flex items-center gap-1.5 min-h-[34px] cursor-pointer"
+                                      type="button"
+                                      onClick={() => handleVerifySingleCookie(w.id, acc.id, acc.label)}
+                                      disabled={verifyingCookieId === acc.id}
+                                      className="px-3 py-1.5 text-xs font-bold text-neutral-800 bg-white/80 hover:bg-white border border-neutral-300/80 rounded-xl transition-all flex items-center gap-1.5 min-h-[34px] cursor-pointer disabled:opacity-50 shadow-2xs"
+                                      title="Uji apakah akun masih login sekarang"
                                     >
-                                      <Edit2 className="w-3.5 h-3.5" /> Edit Cookie
+                                      <Zap className={`w-3.5 h-3.5 text-amber-600 ${verifyingCookieId === acc.id ? 'animate-spin' : ''}`} />
+                                      <span>{verifyingCookieId === acc.id ? 'Mengecek...' : 'Cek Login'}</span>
                                     </button>
-                                    <button
-                                      onClick={() => handleDeleteCookie(w.id, acc.id, acc.label)}
-                                      title="Hapus Akun Cookie"
-                                      className="p-2 text-neutral-500 hover:text-rose-600 rounded-xl hover:bg-rose-50 transition-colors min-h-[34px] min-w-[34px] flex items-center justify-center cursor-pointer"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </button>
+
+                                    <div className="flex items-center gap-1.5">
+                                      <button
+                                        onClick={() => handleOpenEditCookie(w, acc)}
+                                        className="px-3 py-1.5 text-xs font-bold text-neutral-800 bg-white/80 hover:bg-white border border-neutral-300/80 rounded-xl transition-all flex items-center gap-1.5 min-h-[34px] cursor-pointer shadow-2xs"
+                                      >
+                                        <Edit2 className="w-3.5 h-3.5" /> Edit
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteCookie(w.id, acc.id, acc.label)}
+                                        title="Hapus Akun Cookie"
+                                        className="p-2 text-neutral-500 hover:text-rose-600 rounded-xl hover:bg-rose-50 transition-colors min-h-[34px] min-w-[34px] flex items-center justify-center cursor-pointer"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    </div>
                                   </div>
                                 </div>
                               ))}
@@ -3119,6 +3543,7 @@ export default function AdminDashboardPage() {
                 );
               })()}
             </div>
+
           </div>
         )}
 
@@ -3747,8 +4172,8 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* SUB-NAV PILLS for Pembayaran, Pengaturan Umum, Upload Ekstensi, Logs */}
-        {['payment', 'settings', 'uploads', 'logs'].includes(activeTab) && (
+        {/* SUB-NAV PILLS for Pembayaran, Pengaturan Umum, Bot Telegram, Upload Ekstensi, Logs */}
+        {['payment', 'settings', 'telegram', 'uploads', 'logs'].includes(activeTab) && (
           <div className="flex items-center justify-between pb-2">
             <div className="flex items-center gap-2 p-2 bg-white border border-[#E8E8DF] rounded-2xl shadow-bone w-fit flex-wrap">
               <button
@@ -3776,6 +4201,23 @@ export default function AdminDashboardPage() {
               >
                 <Settings className="w-4.5 h-4.5" />
                 <span>Pengaturan Umum</span>
+              </button>
+
+              <button
+                onClick={() => handleTabChange('telegram')}
+                className={`px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2.5 transition-all min-h-[42px] cursor-pointer ${
+                  activeTab === 'telegram'
+                    ? 'bg-neutral-900 text-white shadow-xs'
+                    : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
+                }`}
+              >
+                <Bot className="w-4.5 h-4.5" />
+                <span>Bot Telegram</span>
+                {settingsData.telegram_notify_enabled !== false &&
+                  settingsData.telegram_notify_enabled !== 'false' &&
+                  settingsData.telegram_bot_token && (
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Bot Notifikasi Aktif" />
+                  )}
               </button>
 
               <button
@@ -4345,7 +4787,411 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* 3. UPLOAD & EKSTENSI TAB */}
+        {/* 2.5. BOT TELEGRAM DEDICATED TAB */}
+        {activeTab === 'telegram' && (
+          <div className="space-y-6">
+            <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#E8E8DF] shadow-bone space-y-6">
+              {/* Header Title */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[#F0F0E8]">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center font-bold shrink-0 border border-sky-200 shadow-2xs">
+                    <Bot className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-neutral-900">Integrasi & Monitoring Bot Telegram</h3>
+                    <p className="text-xs sm:text-sm text-neutral-500 mt-0.5">
+                      Peringatan instan saat cookie logout/kadaluarsa, monitoring kesehatan akun, dan kontrol bot langsung dari chat Telegram.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  {settingsData.telegram_bot_token && (
+                    <button
+                      type="button"
+                      onClick={handleCheckTelegramStatus}
+                      className="px-3.5 py-2 text-xs font-semibold text-neutral-700 bg-white hover:bg-neutral-50 border border-[#DDDDCF] rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 text-sky-600" /> Cek Status Bot
+                    </button>
+                  )}
+                  {telegramBotInfo && telegramBotInfo.username ? (
+                    <div className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center gap-2 text-xs font-semibold">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                      <span>Online: @{telegramBotInfo.username}</span>
+                    </div>
+                  ) : (
+                    <div className="px-3 py-1.5 rounded-xl bg-neutral-100 border border-neutral-200 text-neutral-600 flex items-center gap-2 text-xs font-semibold">
+                      <span className="w-2 h-2 rounded-full bg-neutral-400"></span>
+                      <span>Belum Terhubung</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Bot Info Banner if connected */}
+              {telegramBotInfo && telegramBotInfo.username && (
+                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-sky-50/80 via-sky-50/40 to-white border border-sky-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <Bot className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-neutral-900 flex items-center gap-2">
+                        <span>{telegramBotInfo.name || 'Telegram Bot'}</span>
+                        <a
+                          href={`https://t.me/${telegramBotInfo.username}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-sky-600 hover:text-sky-800 font-mono text-xs flex items-center gap-0.5 underline"
+                        >
+                          @{telegramBotInfo.username}
+                          <ExternalLink className="w-3 h-3 ml-0.5" />
+                        </a>
+                      </div>
+                      <p className="text-xs text-neutral-500 mt-0.5">
+                        ID Bot: <span className="font-mono text-neutral-700">{telegramBotInfo.id}</span> • Siap mengirim notifikasi dini dan melayani perintah.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleTestTelegram}
+                      disabled={telegramTesting}
+                      className="px-3.5 py-2 text-xs font-bold text-neutral-800 bg-white hover:bg-neutral-100 border border-[#DDDDCF] rounded-xl flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs disabled:opacity-50"
+                    >
+                      <Send className={`w-3.5 h-3.5 text-sky-600 ${telegramTesting ? 'animate-pulse' : ''}`} />
+                      <span>{telegramTesting ? 'Mengirim Uji Coba...' : 'Kirim Pesan Uji Coba'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSetTelegramWebhook}
+                      disabled={telegramSyncing}
+                      className="px-3.5 py-2 text-xs font-bold text-neutral-800 bg-white hover:bg-neutral-100 border border-[#DDDDCF] rounded-xl flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs disabled:opacity-50"
+                      title="Hubungkan Webhook agar Telegram meneruskan pesan ke server HitShare"
+                    >
+                      <Zap className={`w-3.5 h-3.5 text-amber-600 ${telegramSyncing ? 'animate-spin' : ''}`} />
+                      <span>{telegramSyncing ? 'Menghubungkan...' : 'Hubungkan Webhook'}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Main Configuration Form Card */}
+              <form onSubmit={handleSaveTelegramSettings} className="space-y-5 max-w-3xl">
+                <div className="p-6 bg-[#FBFBF9] border border-[#E8E8DF] rounded-3xl space-y-5">
+                  {/* Toggle Active */}
+                  <div className="flex items-center justify-between pb-4 border-b border-[#EAEAE3]">
+                    <div>
+                      <label className="text-sm font-bold text-neutral-900 cursor-pointer block">
+                        Aktifkan Notifikasi Telegram Otomatis
+                      </label>
+                      <p className="text-xs text-neutral-500 mt-0.5">
+                        Kirim peringatan instan ke Telegram saat sesi cookie akun logout, kadaluarsa, atau segera kadaluarsa (&lt; 48 jam).
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSettingsData({
+                          ...settingsData,
+                          telegram_notify_enabled:
+                            settingsData.telegram_notify_enabled === false ||
+                            settingsData.telegram_notify_enabled === 'false'
+                              ? 'true'
+                              : 'false',
+                        })
+                      }
+                      className="cursor-pointer focus:outline-none"
+                    >
+                      <div
+                        className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                          settingsData.telegram_notify_enabled !== false &&
+                          settingsData.telegram_notify_enabled !== 'false'
+                            ? 'bg-sky-600'
+                            : 'bg-neutral-300'
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                            settingsData.telegram_notify_enabled !== false &&
+                            settingsData.telegram_notify_enabled !== 'false'
+                              ? 'translate-x-5'
+                              : 'translate-x-0'
+                          }`}
+                        />
+                      </div>
+                    </button>
+                  </div>
+
+                  {/* Bot Token Input */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-bold text-neutral-800">
+                        Token Bot Telegram (HTTP API Token) <span className="text-rose-500">*</span>
+                      </label>
+                      <a
+                        href="https://t.me/BotFather"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs font-semibold text-sky-600 hover:text-sky-800 flex items-center gap-1"
+                      >
+                        <span>Buka @BotFather</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type={showTelegramToken ? 'text' : 'password'}
+                        placeholder="Contoh: 7123456789:AAFn_xAbCdEf123456789"
+                        value={settingsData.telegram_bot_token || ''}
+                        onChange={(e) =>
+                          setSettingsData({ ...settingsData, telegram_bot_token: e.target.value })
+                        }
+                        className="w-full px-4 py-2.5 text-xs sm:text-sm bg-white border border-[#DDDDCF] rounded-2xl text-neutral-900 focus:outline-none focus:border-neutral-900 font-mono min-h-[44px] transition-all pr-12"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowTelegramToken((prev) => !prev)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700 cursor-pointer"
+                        title={showTelegramToken ? 'Sembunyikan' : 'Tampilkan'}
+                      >
+                        {showTelegramToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-neutral-400 mt-1">
+                      Token rahasia yang diberikan oleh @BotFather saat membuat bot dengan perintah <code>/newbot</code>.
+                    </p>
+                  </div>
+
+                  {/* Target Chat ID Input */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-bold text-neutral-800">
+                        Chat ID Telegram Penerima (Akun Admin atau Grup) <span className="text-rose-500">*</span>
+                      </label>
+                      <span className="text-[11px] text-neutral-400">
+                        User ID atau Group ID
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Contoh: 123456789 (Akun Pribadi) atau -1001234567890 (Grup)"
+                      value={settingsData.telegram_chat_id || ''}
+                      onChange={(e) =>
+                        setSettingsData({ ...settingsData, telegram_chat_id: e.target.value })
+                      }
+                      className="w-full px-4 py-2.5 text-xs sm:text-sm bg-white border border-[#DDDDCF] rounded-2xl text-neutral-900 focus:outline-none focus:border-neutral-900 font-mono min-h-[44px] transition-all"
+                    />
+                    <p className="text-[11px] text-neutral-400 mt-1">
+                      Dapatkan ID Telegram Anda dengan mengirim pesan ke <code>@userinfobot</code> di Telegram atau ketik perintah <code>/myid</code> ke bot Anda.
+                    </p>
+                  </div>
+
+                  {/* Webhook Endpoint Info & HTTPS Note */}
+                  <div className="p-4 rounded-2xl bg-white border border-[#E8E8DF] space-y-3 text-xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <span className="font-bold text-neutral-800 block">URL Webhook Interaktif Server:</span>
+                        <code className="text-[11px] font-mono text-neutral-600 bg-[#F2F2EC] px-2 py-0.5 rounded mt-0.5 inline-block">
+                          {typeof window !== 'undefined' ? `${window.location.origin}/api/telegram/webhook` : '/api/telegram/webhook'}
+                        </code>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (typeof window !== 'undefined') {
+                            navigator.clipboard.writeText(`${window.location.origin}/api/telegram/webhook`);
+                            toast.success('URL Webhook berhasil disalin ke clipboard');
+                          }
+                        }}
+                        className="px-3 py-1.5 text-xs font-semibold text-neutral-700 bg-[#FBFBF9] hover:bg-[#F2F2EC] border border-[#DDDDCF] rounded-xl flex items-center gap-1.5 cursor-pointer shrink-0 self-start sm:self-auto"
+                      >
+                        <Copy className="w-3 h-3" /> Salin URL
+                      </button>
+                    </div>
+
+                    <div className="p-3 bg-amber-50/80 border border-amber-200/80 rounded-xl text-amber-950 text-[11px] space-y-1">
+                      <div className="font-bold flex items-center gap-1.5 text-amber-900">
+                        <Info className="w-3.5 h-3.5 shrink-0 text-amber-600" />
+                        <span>Kebutuhan Webhook (Perintah /status & /check):</span>
+                      </div>
+                      <p className="leading-relaxed text-amber-800">
+                        Telegram mewajibkan domain berprotokol <b>HTTPS publik</b> dengan sertifikat SSL untuk Webhook. Pada tahap lokal (localhost HTTP), fitur Webhook belum bisa dihubungkan langsung oleh Telegram.
+                      </p>
+                      <p className="leading-relaxed text-emerald-800 font-semibold pt-0.5">
+                        ✅ <b>PENTING:</b> Notifikasi otomatis peringatan cookie logout/expired <b>TIDAK membutuhkan webhook</b> dan sudah langsung aktif bekerja secara normal walau di localhost! Cukup klik tombol <i>Kirim Pesan Uji Coba</i> di bawah untuk memastikannya.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-[#EAEAE3]">
+                    <button
+                      type="submit"
+                      disabled={savingSettings}
+                      className="px-6 py-2.5 text-xs sm:text-sm font-bold text-white bg-neutral-900 hover:bg-neutral-800 rounded-xl flex items-center gap-2 min-h-[42px] transition-all cursor-pointer shadow-2xs disabled:opacity-50"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>{savingSettings ? 'Menyimpan...' : 'Simpan Konfigurasi Bot'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleTestTelegram}
+                      disabled={telegramTesting}
+                      className="px-4 py-2.5 text-xs sm:text-sm font-bold text-neutral-800 bg-white hover:bg-neutral-100 border border-[#DDDDCF] rounded-xl flex items-center gap-1.5 min-h-[42px] transition-all cursor-pointer shadow-2xs disabled:opacity-50"
+                    >
+                      <Send className={`w-3.5 h-3.5 text-sky-600 ${telegramTesting ? 'animate-pulse' : ''}`} />
+                      <span>{telegramTesting ? 'Mengirim Uji Coba...' : 'Kirim Pesan Uji Coba'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSetTelegramWebhook}
+                      disabled={telegramSyncing}
+                      className="px-4 py-2.5 text-xs sm:text-sm font-bold text-neutral-800 bg-white hover:bg-neutral-100 border border-[#DDDDCF] rounded-xl flex items-center gap-1.5 min-h-[42px] transition-all cursor-pointer shadow-2xs disabled:opacity-50 ml-auto"
+                      title="Daftarkan URL webhook ke Telegram agar perintah bot dapat langsung merespons"
+                    >
+                      <Zap className={`w-3.5 h-3.5 text-amber-600 ${telegramSyncing ? 'animate-spin' : ''}`} />
+                      <span>{telegramSyncing ? 'Menghubungkan Webhook...' : 'Hubungkan Webhook Interaktif'}</span>
+                    </button>
+                  </div>
+                </div>
+              </form>
+
+              {/* Two-Way Bot Interactive Commands Guide */}
+              <div className="space-y-4 max-w-4xl pt-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center font-bold">
+                    <MessageSquare className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-neutral-900">Perintah Interaktif Bot (Two-Way Commands)</h4>
+                    <p className="text-xs text-neutral-500">
+                      Anda atau tim admin dapat mengetikkan perintah berikut langsung di Telegram kapan saja:
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                  <div className="p-4 rounded-2xl bg-[#FBFBF9] border border-[#E8E8DF] space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <code className="text-sm font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-lg border border-sky-200">
+                        /status
+                      </code>
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                        Cek Cepat
+                      </span>
+                    </div>
+                    <div className="text-xs font-semibold text-neutral-800">Ringkasan Kesehatan Seluruh Akun</div>
+                    <p className="text-xs text-neutral-500">
+                      Menampilkan total akun login sehat, jumlah logout, expired, dan daftar akun kritis yang memerlukan penggantian cookie.
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-[#FBFBF9] border border-[#E8E8DF] space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <code className="text-sm font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-lg border border-sky-200">
+                        /check
+                      </code>
+                      <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                        Active HTTP Probe
+                      </span>
+                    </div>
+                    <div className="text-xs font-semibold text-neutral-800">Jalankan Pengujian Status Login Sekarang</div>
+                    <p className="text-xs text-neutral-500">
+                      Server akan langsung melakukan HTTP request ke seluruh website target secara real-time dan melaporkan kondisi login akun ke Telegram.
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-[#FBFBF9] border border-[#E8E8DF] space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <code className="text-sm font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-lg border border-sky-200">
+                        /myid
+                      </code>
+                      <span className="text-[10px] font-bold text-neutral-700 bg-neutral-100 px-2 py-0.5 rounded-full border border-neutral-200">
+                        Identifikasi
+                      </span>
+                    </div>
+                    <div className="text-xs font-semibold text-neutral-800">Menampilkan Chat ID Anda</div>
+                    <p className="text-xs text-neutral-500">
+                      Menampilkan nomor Chat ID unik Telegram Anda untuk mempermudah memasukkannya ke formulir pengaturan di atas.
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-[#FBFBF9] border border-[#E8E8DF] space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <code className="text-sm font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-lg border border-sky-200">
+                        /help
+                      </code>
+                      <span className="text-[10px] font-bold text-neutral-700 bg-neutral-100 px-2 py-0.5 rounded-full border border-neutral-200">
+                        Panduan
+                      </span>
+                    </div>
+                    <div className="text-xs font-semibold text-neutral-800">Bantuan & Daftar Perintah</div>
+                    <p className="text-xs text-neutral-500">
+                      Mengirimkan daftar seluruh menu perintah yang didukung oleh bot serta status bot security HitShare.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 4 Steps Quick Setup Guide */}
+              <div className="space-y-3 max-w-4xl pt-4 border-t border-[#F0F0E8]">
+                <h4 className="text-sm font-bold text-neutral-900 flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-neutral-900 text-white flex items-center justify-center text-[11px] font-bold">i</span>
+                  <span>Panduan Praktis Setup Bot Telegram HitShare</span>
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                  <div className="p-3.5 bg-white border border-[#E8E8DF] rounded-2xl space-y-1">
+                    <div className="font-bold text-neutral-900 flex items-center gap-1.5">
+                      <span className="w-5 h-5 rounded-lg bg-sky-100 text-sky-800 flex items-center justify-center text-[11px]">1</span>
+                      <span>Buat Bot di BotFather</span>
+                    </div>
+                    <p className="text-neutral-500 text-[11px]">
+                      Buka <a href="https://t.me/BotFather" target="_blank" rel="noreferrer" className="text-sky-600 underline">@BotFather</a> di Telegram, kirim <code>/newbot</code>, beri nama bot, dan salin <b>HTTP API Token</b> yang diberikan.
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 bg-white border border-[#E8E8DF] rounded-2xl space-y-1">
+                    <div className="font-bold text-neutral-900 flex items-center gap-1.5">
+                      <span className="w-5 h-5 rounded-lg bg-sky-100 text-sky-800 flex items-center justify-center text-[11px]">2</span>
+                      <span>Dapatkan Chat ID</span>
+                    </div>
+                    <p className="text-neutral-500 text-[11px]">
+                      Buka <a href="https://t.me/userinfobot" target="_blank" rel="noreferrer" className="text-sky-600 underline">@userinfobot</a> di Telegram, klik Start, dan salin nomor <b>Id</b> akun Anda.
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 bg-white border border-[#E8E8DF] rounded-2xl space-y-1">
+                    <div className="font-bold text-neutral-900 flex items-center gap-1.5">
+                      <span className="w-5 h-5 rounded-lg bg-sky-100 text-sky-800 flex items-center justify-center text-[11px]">3</span>
+                      <span>Simpan Kredensial</span>
+                    </div>
+                    <p className="text-neutral-500 text-[11px]">
+                      Tempel Token dan Chat ID pada formulir di atas, aktifkan tombol toggle notifikasi, lalu klik <b>Simpan Konfigurasi Bot</b>.
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 bg-white border border-[#E8E8DF] rounded-2xl space-y-1">
+                    <div className="font-bold text-neutral-900 flex items-center gap-1.5">
+                      <span className="w-5 h-5 rounded-lg bg-sky-100 text-sky-800 flex items-center justify-center text-[11px]">4</span>
+                      <span>Tes & Hubungkan</span>
+                    </div>
+                    <p className="text-neutral-500 text-[11px]">
+                      Klik <b>Kirim Pesan Uji Coba</b> untuk memvalidasi pesan, lalu klik <b>Hubungkan Webhook</b> agar bot bisa merespons perintah <code>/status</code>.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
         {activeTab === 'uploads' && (
           <div className="space-y-6">
             <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#E8E8DF] shadow-bone space-y-6">
@@ -4882,6 +5728,24 @@ export default function AdminDashboardPage() {
                 ✕
               </button>
             </div>
+
+            {editingCookie && ['logged_out', 'expired', 'expiring_soon'].includes(editingCookie.cookie_status) && (
+              <div className={`p-3.5 rounded-2xl border text-xs space-y-1 ${
+                editingCookie.cookie_status === 'logged_out' || editingCookie.cookie_status === 'expired'
+                  ? 'bg-rose-50 border-rose-200 text-rose-900'
+                  : 'bg-amber-50 border-amber-200 text-amber-900'
+              }`}>
+                <div className="font-bold flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
+                  <span>
+                    Status Saat Ini: {editingCookie.cookie_status === 'logged_out' ? 'Sesi Logout' : editingCookie.cookie_status === 'expired' ? 'Cookie Kadaluarsa' : 'Segera Habis'}
+                  </span>
+                </div>
+                <p className="leading-relaxed">
+                  {editingCookie.health_message || 'Harap masukkan data JSON cookie baru yang masih aktif login dari browser.'}
+                </p>
+              </div>
+            )}
 
             <form onSubmit={handleSaveCookie} className="space-y-4">
               <div>

@@ -128,6 +128,32 @@ class PaymentController extends Controller
     }
 
     /**
+     * Dapatkan IP address Paymenku (DNS cache + Anycast fallback) untuk menghindari lag DNS Windows/ISP
+     */
+    private function getPaymenkuDnsResolutions(): array
+    {
+        return cache()->remember('dns_paymenku_ips', 3600, function () {
+            $result = [];
+            $records = @dns_get_record('paymenku.com', DNS_A);
+            if (!empty($records)) {
+                foreach ($records as $r) {
+                    if (!empty($r['ip'])) {
+                        $result[] = 'paymenku.com:443:' . $r['ip'];
+                    }
+                }
+            }
+            if (empty($result)) {
+                // Cloudflare Anycast fallback IPs untuk paymenku.com
+                $result = [
+                    'paymenku.com:443:104.21.68.221',
+                    'paymenku.com:443:172.67.198.250',
+                ];
+            }
+            return $result;
+        });
+    }
+
+    /**
      * Request to Paymenku API
      */
     private function paymenkuRequest(string $method, string $endpoint, ?array $body = null): array
@@ -138,6 +164,8 @@ class PaymentController extends Controller
         }
 
         $url = self::PAYMENKU_BASE . $endpoint;
+        $resolvedIps = $this->getPaymenkuDnsResolutions();
+
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . $config['apiKey'],
             'Accept'        => 'application/json',
@@ -147,7 +175,8 @@ class PaymentController extends Controller
         ->withOptions([
             'force_ip_resolve' => 'v4',
             'curl' => [
-                CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
+                CURLOPT_RESOLVE           => $resolvedIps,
+                CURLOPT_DNS_CACHE_TIMEOUT => 3600,
             ],
         ])
         ->timeout(30)

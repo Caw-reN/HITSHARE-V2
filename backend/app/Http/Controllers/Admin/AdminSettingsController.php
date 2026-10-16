@@ -117,4 +117,78 @@ class AdminSettingsController extends Controller
 
         return response()->json(['message' => 'Pengaturan berhasil disimpan']);
     }
+
+    /**
+     * Uji coba kirim pesan Telegram
+     */
+    public function testTelegram(Request $request, \App\Services\TelegramNotifierService $telegram): JsonResponse
+    {
+        $botToken = $request->input('bot_token');
+        $chatId = $request->input('chat_id');
+
+        $res = $telegram->sendTestMessage($botToken, $chatId);
+
+        if ($res['success']) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Pesan uji coba berhasil terkirim ke Telegram!',
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'error'   => $res['error'] ?? 'Gagal mengirim pesan ke Telegram',
+        ], 400);
+    }
+
+    /**
+     * Cek status koneksi bot (getMe)
+     */
+    public function getTelegramBotInfo(Request $request, \App\Services\TelegramNotifierService $telegram): JsonResponse
+    {
+        $botToken = $request->input('bot_token');
+        $res = $telegram->getBotInfo($botToken);
+
+        if ($res['success']) {
+            return response()->json([
+                'success'  => true,
+                'bot'      => $res['bot'] ?? null,
+                'username' => $res['username'] ?? null,
+                'name'     => $res['name'] ?? null,
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'error'   => $res['error'] ?? 'Gagal menghubungi bot Telegram',
+        ], 400);
+    }
+
+    /**
+     * Daftarkan webhook Telegram
+     */
+    public function setTelegramWebhook(Request $request, \App\Services\TelegramNotifierService $telegram): JsonResponse
+    {
+        $botToken = $request->input('bot_token');
+        $customUrl = $request->input('webhook_url');
+
+        // Gunakan URL webhook yang diinput admin atau fallback ke URL host saat ini
+        $webhookUrl = $customUrl ?: url('/api/telegram/webhook');
+
+        $res = $telegram->setWebhook($webhookUrl, $botToken);
+
+        if ($res['success']) {
+            return response()->json([
+                'success'     => true,
+                'webhook_url' => $webhookUrl,
+                'message'     => 'Webhook Telegram berhasil didaftarkan ke ' . $webhookUrl,
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'error'   => $res['error'] ?? 'Gagal mendaftarkan webhook Telegram',
+        ], 400);
+    }
 }
+

@@ -56,5 +56,7 @@ Thumbs.db
 *.sw?
 
 # Temporary local extension archives (keep public/downloads/extension.zip)
+/extension*.zip
+/SELECT THIS FOLDER/
 extension-dev*.zip
 extension-dev (*).zip

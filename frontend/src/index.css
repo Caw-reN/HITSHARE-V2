@@ -353,7 +353,41 @@
   display: inline-block;
 }
 
+/* Infinite Scrolling Marquee */
+@keyframes marqueeLeft {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
 
+@keyframes marqueeRight {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0%);
+  }
+}
 
+.animate-marquee-left {
+  display: flex;
+  width: max-content;
+  animation: marqueeLeft 40s linear infinite;
+}
 
+.animate-marquee-left:hover {
+  animation-play-state: paused;
+}
 
+.animate-marquee-right {
+  display: flex;
+  width: max-content;
+  animation: marqueeRight 40s linear infinite;
+}
+
+.animate-marquee-right:hover {
+  animation-play-state: paused;
+}

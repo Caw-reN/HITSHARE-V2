@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Website;
 use App\Models\WebsiteAccount;
+use App\Services\CookieVerifierService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -35,6 +36,10 @@ class AdminWebsiteController extends Controller
                         'cookie_data'       => $acc->cookie_data,
                         'cookie_bytes'      => strlen($acc->cookie_data ?? ''),
                         'cookie_updated_at' => $acc->cookie_updated_at?->toISOString(),
+                        'cookie_status'     => $acc->cookie_status ?? 'empty',
+                        'cookie_expires_at' => $acc->cookie_expires_at?->toISOString(),
+                        'last_checked_at'   => $acc->last_checked_at?->toISOString(),
+                        'health_message'    => $acc->health_message,
                         'is_active'         => (bool) $acc->is_active,
                         'created_at'        => $acc->created_at?->toISOString(),
                         'updated_at'        => $acc->updated_at?->toISOString(),
@@ -170,9 +175,17 @@ class AdminWebsiteController extends Controller
             'is_active'         => $isActive,
         ]);
 
+        // Auto verify status login & kadaluarsa cookie jika cookie diisi
+        if ($hasCookie) {
+            app(CookieVerifierService::class)->verifyAccount($account, true);
+            $account->refresh();
+        }
+
         return response()->json([
-            'id'      => $account->id,
-            'message' => 'Akun berhasil ditambahkan',
+            'id'             => $account->id,
+            'message'        => 'Akun berhasil ditambahkan',
+            'cookie_status'  => $account->cookie_status,
+            'health_message' => $account->health_message,
         ]);
     }
 
@@ -211,7 +224,17 @@ class AdminWebsiteController extends Controller
 
         $account->save();
 
-        return response()->json(['message' => 'Akun berhasil diperbarui']);
+        // Jika cookie diubah atau baru diisi, verifikasi ulang otomatis
+        if ($cookieChanged) {
+            app(CookieVerifierService::class)->verifyAccount($account, true);
+            $account->refresh();
+        }
+
+        return response()->json([
+            'message'        => 'Akun berhasil diperbarui',
+            'cookie_status'  => $account->cookie_status,
+            'health_message' => $account->health_message,
+        ]);
     }
 
     /**
@@ -227,5 +250,56 @@ class AdminWebsiteController extends Controller
         $account->delete();
 
         return response()->json(['message' => 'Akun berhasil dihapus']);
+    }
+
+    /**
+     * Summary status kesehatan cookie seluruh website untuk admin dashboard
+     */
+    public function cookieHealthSummary(CookieVerifierService $verifier): JsonResponse
+    {
+        $summary = $verifier->getSummary();
+        return response()->json($summary);
+    }
+
+    /**
+     * Trigger verifikasi berkala seluruh cookie akun
+     */
+    public function verifyAllAccountsHealth(CookieVerifierService $verifier): JsonResponse
+    {
+        $stats = $verifier->verifyAllAccounts(true);
+        $summary = $verifier->getSummary();
+
+        return response()->json([
+            'message' => 'Pengecekan seluruh cookie akun berhasil diselesaikan',
+            'stats'   => $stats,
+            'summary' => $summary,
+        ]);
+    }
+
+    /**
+     * Trigger verifikasi satu akun website
+     */
+    public function verifyAccountHealth($id, $accId, CookieVerifierService $verifier): JsonResponse
+    {
+        $account = WebsiteAccount::where('website_id', $id)->where('id', $accId)->first();
+        if (!$account) {
+            return response()->json(['error' => 'Akun tidak ditemukan'], 404);
+        }
+
+        $res = $verifier->verifyAccount($account, true);
+        $account->refresh();
+
+        return response()->json([
+            'message'        => 'Status login akun berhasil diperiksa',
+            'account'        => [
+                'id'                => $account->id,
+                'website_id'        => $account->website_id,
+                'cookie_status'     => $account->cookie_status,
+                'cookie_expires_at' => $account->cookie_expires_at?->toISOString(),
+                'last_checked_at'   => $account->last_checked_at?->toISOString(),
+                'health_message'    => $account->health_message,
+            ],
+            'result'         => $res,
+        ]);
     }
 }

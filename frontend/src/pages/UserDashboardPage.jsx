@@ -1305,23 +1305,24 @@ export default function UserDashboardPage() {
                   )}
                 </div>
 
-                <div className="p-4.5 bg-[#FBFBF9] rounded-2xl border border-[#ECECE5] space-y-3">
-                  <div className="text-xs font-bold text-neutral-800 uppercase tracking-wider">
-                    Status Akses Login Ekstensi:
+                <div className="p-3.5 bg-[#FBFBF9] rounded-2xl border border-[#ECECE5] space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-neutral-800 uppercase tracking-wider">
+                      Status Akses Ekstensi:
+                    </span>
+                    {profile?.device_id && (
+                      <span className="text-[11px] font-mono text-neutral-600 bg-[#EAEAE3] px-2.5 py-0.5 rounded-lg">
+                        ID: {profile.device_id.slice(0, 18)}...
+                      </span>
+                    )}
                   </div>
                   {profile?.device_id ? (
-                    <div className="space-y-2">
-                      <p className="text-xs sm:text-sm text-neutral-600 leading-relaxed font-normal">
-                        Akun Anda saat ini terkunci di perangkat browser yang aktif. Jika Anda berganti komputer/laptop, menginstal ulang browser, atau ekstensi menampilkan pesan <em>"Akun sudah terdaftar di perangkat lain"</em>, gunakan tombol reset di bawah.
-                      </p>
-                      <div className="flex items-center gap-2 text-xs font-mono text-neutral-600 bg-[#EAEAE3] px-3 py-2 rounded-xl w-fit">
-                        <span className="font-semibold text-neutral-800">Device ID Terdaftar:</span>
-                        <span>{profile.device_id.slice(0, 24)}...</span>
-                      </div>
-                    </div>
+                    <p className="text-xs text-neutral-600 leading-relaxed">
+                      Terkunci pada 1 browser aktif. Klik tombol reset di bawah jika ingin berpindah perangkat.
+                    </p>
                   ) : (
-                    <p className="text-xs sm:text-sm text-neutral-600 leading-relaxed font-normal">
-                      Akun Anda saat ini <strong>Bebas</strong> (belum terikat ke perangkat mana pun). Saat Anda login di ekstensi browser, perangkat tersebut akan otomatis terdaftar dan terkunci untuk keamanan akun bersama.
+                    <p className="text-xs text-neutral-600 leading-relaxed">
+                      Akun bebas. Browser Anda akan otomatis terikat saat pertama kali login di ekstensi.
                     </p>
                   )}
                 </div>
