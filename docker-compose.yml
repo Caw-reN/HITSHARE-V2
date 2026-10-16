@@ -8,9 +8,6 @@ services:
       dockerfile: docker/php/Dockerfile
     container_name: hitshare_app
     restart: unless-stopped
-    dns:
-      - 1.1.1.1
-      - 8.8.8.8
     env_file:
       - .env
     environment:
@@ -43,9 +40,6 @@ services:
       dockerfile: docker/php/Dockerfile
     container_name: hitshare_scheduler
     restart: unless-stopped
-    dns:
-      - 1.1.1.1
-      - 8.8.8.8
     entrypoint: ["/usr/local/bin/entrypoint.sh"]
     command: ["php", "/var/www/backend/artisan", "schedule:work"]
     env_file:
