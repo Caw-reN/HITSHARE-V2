@@ -35,35 +35,107 @@ class CookieVerifierService
     ];
 
     /**
-     * Parse tanggal kadaluarsa terkecil dari array cookie
+     * Cookie autentikasi utama untuk layanan-layanan populer
      */
-    public function parseEarliestExpiration(?array $cookies): ?Carbon
+    protected const PRIMARY_AUTH_COOKIES = [
+        'netflix.com'    => ['NetflixId', 'SecureNetflixId'],
+        'spotify.com'    => ['sp_dc', 'sp_key'],
+        'chatgpt.com'    => ['__Secure-next-auth.session-token'],
+        'openai.com'     => ['__Secure-next-auth.session-token'],
+        'canva.com'      => ['canva_session', 'session'],
+        'primevideo.com' => ['at-main', 'sess-at-main'],
+        'iq.com'         => ['P00001', 'P00002'],
+        'iqiyi.com'      => ['P00001', 'P00002'],
+        'disneyplus.com' => ['disneyplus_token', 'authorization_token'],
+        'youtube.com'    => ['SID', 'HSID', '__Secure-1PSID'],
+        'google.com'     => ['SID', 'HSID', '__Secure-1PSID'],
+    ];
+
+    /**
+     * Prefix nama cookie tracking/telemetry/analytics yang diabaikan saat menghitung masa aktif
+     */
+    protected const IGNORED_COOKIE_PREFIXES = [
+        '_ga', '_gid', '_gat', '_clck', '_clsk', '_fbp', '_uetsid', '_uetvid',
+        '_gcl', 'optimizely', 'datadog', 'intercom', 'mp_', 'ajs_', 'spid',
+        'guest_id', 'test_cookie', 'IR_', 'uuid', 'flwssn', 'nfvdid', 'clpr',
+        'netflix-sans', 'bcookie', 'bscookie', '__cf', 'cf_', 'amplitude',
+    ];
+
+    /**
+     * Parse tanggal kadaluarsa dari cookie autentikasi (mengabaikan cookie tracking/telemetri)
+     */
+    public function parseEarliestExpiration(?array $cookies, string $domain = ''): ?Carbon
     {
         if (empty($cookies) || !is_array($cookies)) {
             return null;
         }
 
-        $minTimestamp = null;
+        $host = strtolower($domain);
+
+        // 1. Cek Primary Auth Cookies untuk platform populer (misal: NetflixId pada Netflix)
+        foreach (self::PRIMARY_AUTH_COOKIES as $targetDomain => $authNames) {
+            if ($host && str_contains($host, $targetDomain)) {
+                $matchedTs = null;
+                foreach ($cookies as $c) {
+                    if (!is_array($c) || empty($c['name'])) continue;
+                    if (in_array($c['name'], $authNames, true)) {
+                        $ts = $c['expirationDate'] ?? $c['expires'] ?? null;
+                        if ($ts !== null && is_numeric($ts)) {
+                            $val = (int) $ts;
+                            if ($val > 1577836800 && $val < 2147483647) {
+                                if ($matchedTs === null || $val > $matchedTs) {
+                                    $matchedTs = $val;
+                                }
+                            }
+                        }
+                    }
+                }
+                if ($matchedTs !== null) {
+                    return Carbon::createFromTimestamp($matchedTs);
+                }
+            }
+        }
+
+        // 2. Jika bukan platform khusus, filter cookie tracking/analytics
+        $futureTimestamps = [];
+        $allValidTimestamps = [];
 
         foreach ($cookies as $c) {
-            if (!is_array($c)) {
-                continue;
-            }
+            if (!is_array($c) || empty($c['name'])) continue;
+            $name = strtolower($c['name']);
 
-            // Expiration timestamp di browser biasanya ada di 'expirationDate' atau 'expires'
+            $isIgnored = false;
+            foreach (self::IGNORED_COOKIE_PREFIXES as $prefix) {
+                if (str_starts_with($name, strtolower($prefix))) {
+                    $isIgnored = true;
+                    break;
+                }
+            }
+            if ($isIgnored) continue;
+
             $ts = $c['expirationDate'] ?? $c['expires'] ?? null;
             if ($ts !== null && is_numeric($ts)) {
                 $val = (int) $ts;
-                // Filter nilai timestamp realistis (antara tahun 2020 hingga 2038)
                 if ($val > 1577836800 && $val < 2147483647) {
-                    if ($minTimestamp === null || $val < $minTimestamp) {
-                        $minTimestamp = $val;
+                    $allValidTimestamps[] = $val;
+                    if ($val > now()->timestamp) {
+                        $futureTimestamps[] = $val;
                     }
                 }
             }
         }
 
-        return $minTimestamp ? Carbon::createFromTimestamp($minTimestamp) : null;
+        // Utamakan tanggal kadaluarsa masa depan terdekat dari cookie valid
+        if (!empty($futureTimestamps)) {
+            return Carbon::createFromTimestamp(min($futureTimestamps));
+        }
+
+        // Jika semua cookie non-tracking sudah lampau, ambil tanggal paling akhir
+        if (!empty($allValidTimestamps)) {
+            return Carbon::createFromTimestamp(max($allValidTimestamps));
+        }
+
+        return null;
     }
 
     /**
@@ -75,7 +147,7 @@ class CookieVerifierService
 
         // 1. Cek jika cookie kosong
         if (empty($rawCookie) || $rawCookie === '[]') {
-            $account->cookie_status    = 'empty';
+            $account->cookie_status     = 'empty';
             $account->cookie_expires_at = null;
             $account->last_checked_at   = now();
             $account->health_message    = 'Data cookie belum diisi atau kosong';
@@ -91,7 +163,7 @@ class CookieVerifierService
         // 2. Decode JSON cookie
         $cookies = json_decode($rawCookie, true);
         if (json_last_error() !== JSON_ERROR_NONE || !is_array($cookies)) {
-            $account->cookie_status    = 'empty';
+            $account->cookie_status     = 'empty';
             $account->cookie_expires_at = null;
             $account->last_checked_at   = now();
             $account->health_message    = 'Format JSON cookie tidak valid';
@@ -104,36 +176,13 @@ class CookieVerifierService
             ];
         }
 
-        // 3. Analisis tanggal kadaluarsa (Passive Expiry)
-        $earliestExpires = $this->parseEarliestExpiration($cookies);
-
-        // Jika tanggal kadaluarsa sudah lampau, langsung tandai EXPIRED tanpa perlu probe
-        if ($earliestExpires && $earliestExpires->lte(now())) {
-            $statusChanged = $account->cookie_status !== 'expired';
-            $account->cookie_status    = 'expired';
-            $account->cookie_expires_at = $earliestExpires;
-            $account->last_checked_at   = now();
-            $account->health_message    = 'Cookie telah kadaluarsa pada ' . $earliestExpires->format('d M Y H:i');
-            $account->save();
-
-            // Trigger notifikasi bot telegram
-            try {
-                app(\App\Services\TelegramNotifierService::class)->sendCookieAlert($account, $statusChanged);
-            } catch (\Exception $e) {
-                Log::warning('Gagal kirim alert telegram cookie: ' . $e->getMessage());
-            }
-
-            return [
-                'status'         => 'expired',
-                'expires_at'     => $earliestExpires->toISOString(),
-                'health_message' => $account->health_message,
-            ];
-        }
-
         $website = $account->website;
         $websiteUrl = $website?->url ?: '';
 
-        // 4. Active HTTP Session Probe (Cek apakah akun masih login)
+        // 3. Analisis tanggal kadaluarsa auth cookie
+        $earliestExpires = $this->parseEarliestExpiration($cookies, $websiteUrl);
+
+        // 4. Active HTTP Session Probe (Prioritas Tertinggi: uji coba apakah sesi benar-benar login)
         $probeResult = null;
         if ($probeHttp && !empty($websiteUrl)) {
             $probeResult = $this->executeHttpProbe($websiteUrl, $cookies);
@@ -143,13 +192,13 @@ class CookieVerifierService
         $finalStatus = 'healthy';
         $healthMsg = 'Sesi aktif & masih login';
 
-        if ($probeResult) {
+        if ($probeResult && $probeResult['is_verified']) {
             if ($probeResult['is_logged_out']) {
                 $finalStatus = 'logged_out';
-                $healthMsg   = $probeResult['reason'] ?: 'Sesi terdeteksi logout / redirect ke halaman login';
-            } elseif ($probeResult['is_verified']) {
-                // Masih login, cek apakah masa aktif segera habis (< 48 jam)
-                if ($earliestExpires && $earliestExpires->diffInHours(now()) <= 48) {
+                $healthMsg   = $probeResult['reason'] ?: 'Sesi terdeteksi logout / dialihkan ke halaman login';
+            } else {
+                // Sesi HTTP berhasil login!
+                if ($earliestExpires && $earliestExpires->isFuture() && $earliestExpires->diffInHours(now()) <= 48) {
                     $finalStatus = 'expiring_soon';
                     $hoursLeft = max(1, (int) round($earliestExpires->diffInHours(now())));
                     $healthMsg   = "Masih login, namun cookie kadaluarsa dalam {$hoursLeft} jam";
@@ -157,20 +206,16 @@ class CookieVerifierService
                     $finalStatus = 'healthy';
                     $healthMsg   = 'Sesi terverifikasi masih login (' . ($probeResult['http_code'] ?? 200) . ')';
                 }
-            } else {
-                // Probe bot-blocked (Cloudflare captcha dll), fallback ke expiration date
-                if ($earliestExpires && $earliestExpires->diffInHours(now()) <= 48) {
-                    $finalStatus = 'expiring_soon';
-                    $hoursLeft = max(1, (int) round($earliestExpires->diffInHours(now())));
-                    $healthMsg   = "Cookie kadaluarsa dalam {$hoursLeft} jam (Verifikasi masa berlaku)";
-                } else {
-                    $finalStatus = 'healthy';
-                    $healthMsg   = 'Sesi aktif berdasarkan tanggal masa berlaku cookie';
-                }
             }
         } else {
-            // Tanpa HTTP probe (atau probe dinonaktifkan)
-            if ($earliestExpires && $earliestExpires->diffInHours(now()) <= 48) {
+            // Probe tidak bisa dilakukan atau diblokir bot challenge (Cloudflare dsb)
+            if ($probeResult && $probeResult['is_logged_out']) {
+                $finalStatus = 'logged_out';
+                $healthMsg   = $probeResult['reason'] ?: 'Sesi terdeteksi logout';
+            } elseif ($earliestExpires && $earliestExpires->lte(now())) {
+                $finalStatus = 'expired';
+                $healthMsg   = 'Cookie telah kadaluarsa pada ' . $earliestExpires->format('d M Y H:i');
+            } elseif ($earliestExpires && $earliestExpires->diffInHours(now()) <= 48) {
                 $finalStatus = 'expiring_soon';
                 $hoursLeft = max(1, (int) round($earliestExpires->diffInHours(now())));
                 $healthMsg   = "Cookie kadaluarsa dalam {$hoursLeft} jam";
@@ -183,7 +228,7 @@ class CookieVerifierService
         $prevStatus = $account->cookie_status;
 
         // Simpan ke database
-        $account->cookie_status    = $finalStatus;
+        $account->cookie_status     = $finalStatus;
         $account->cookie_expires_at = $earliestExpires;
         $account->last_checked_at   = now();
         $account->health_message    = $healthMsg;
@@ -222,7 +267,7 @@ class CookieVerifierService
             // Tentukan endpoint check spesifik berdasarkan domain website
             $testUrl = $targetUrl;
             if (str_contains($domain, 'netflix.com')) {
-                $testUrl = 'https://www.netflix.com/youraccount';
+                $testUrl = 'https://www.netflix.com/browse';
             } elseif (str_contains($domain, 'chatgpt.com') || str_contains($domain, 'openai.com')) {
                 $testUrl = 'https://chatgpt.com/api/auth/session';
             } elseif (str_contains($domain, 'canva.com')) {
