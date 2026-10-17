@@ -269,24 +269,29 @@ dpkg-reconfigure --priority=low unattended-upgrades
 
 ---
 
-### 1.9 Optimasi DNS & Eliminasi Latensi Resolusi Domain (Wajib untuk VPS)
-Secara bawaan di Ubuntu 24.04, `glibc` dan `systemd-resolved` melakukan query ganda (IPv4 A dan IPv6 AAAA). Pada VPS yang tidak memiliki rute global IPv6 aktif, lookup domain keluar (seperti `paymenku.com` atau `github.com`) mengalami delay/timeout 5-10 detik. Terapkan 2 baris optimasi berikut di VPS:
+### 1.9 Optimasi DNS & Eliminasi Latensi Resolusi Domain (Wajib untuk VPS / Proxmox CT)
+Secara bawaan di Ubuntu 24.04, `glibc` dan `systemd-resolved` melakukan query ganda (IPv4 A dan IPv6 AAAA) atau macet di modul `nss-resolve`. Di lingkungan VPS / Proxmox LXC Container, terapkan optimasi berikut agar koneksi keluar stabil dan instan:
 
 1. **Prioritaskan IPv4 di `gai.conf` (Menghilangkan hang 5-10s saat ping/resolving):**
 ```bash
 sudo sed -i 's/#precedence ::ffff:0:0\/96  100/precedence ::ffff:0:0\/96  100/' /etc/gai.conf
 ```
 
-2. **Gunakan DNS Resolvers Anycast Cepat (Cloudflare & Google):**
+2. **Bypass modul `resolve` di `nsswitch.conf` langsung ke DNS murni:**
 ```bash
-sudo mkdir -p /etc/systemd/resolved.conf.d
-sudo tee /etc/systemd/resolved.conf.d/dns.conf << 'EOF'
-[Resolve]
-DNS=1.1.1.1 8.8.8.8
-FallbackDNS=1.0.0.1 8.8.4.4
-DNSSEC=no
+sudo sed -i 's/^hosts:.*/hosts: files dns/' /etc/nsswitch.conf
+```
+
+3. **Kunci dan Tulis DNS Anycast Bersih (Cloudflare & Google):**
+```bash
+sudo touch /etc/.pve-ignore.resolv.conf
+sudo rm -f /etc/resolv.conf
+sudo tee /etc/resolv.conf << 'EOF'
+nameserver 8.8.8.8
+nameserver 1.1.1.1
+nameserver 192.168.252.254
 EOF
-sudo systemctl restart systemd-resolved
+sudo chmod 644 /etc/resolv.conf
 ```
 
 ---
