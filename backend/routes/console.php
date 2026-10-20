@@ -18,10 +18,10 @@ Artisan::command('inspire', function () {
         ->update(['status' => 'expired']);
 })->everyTenMinutes()->name('orders:auto-expire-pending');
 
-// Periodic cookie health check (checks login status & expiry every hour)
+// Periodic cookie health check & automated Telegram alert (every 30 minutes)
 \Illuminate\Support\Facades\Schedule::call(function () {
     app(\App\Services\CookieVerifierService::class)->verifyAllAccounts(true);
-})->hourly()->name('cookies:health-check');
+})->everyThirtyMinutes()->name('cookies:health-check');
 
 Artisan::command('cookies:health-check {--passive : Hanya periksa tanggal tanpa probe HTTP}', function () {
     $passive = $this->option('passive');

@@ -59,6 +59,7 @@ class CookieVerifierService
         '_gcl', 'optimizely', 'datadog', 'intercom', 'mp_', 'ajs_', 'spid',
         'guest_id', 'test_cookie', 'IR_', 'uuid', 'flwssn', 'nfvdid', 'clpr',
         'netflix-sans', 'bcookie', 'bscookie', '__cf', 'cf_', 'amplitude',
+        '__oai', '__cflb', '_dd_s', '_puid', 'oai-', 'oai_', 'codex_', 'g_state',
     ];
 
     /**
@@ -72,13 +73,23 @@ class CookieVerifierService
 
         $host = strtolower($domain);
 
-        // 1. Cek Primary Auth Cookies untuk platform populer (misal: NetflixId pada Netflix)
+        // 1. Cek Primary Auth Cookies untuk platform populer (misal: NetflixId pada Netflix atau __Secure-next-auth.session-token pada ChatGPT)
         foreach (self::PRIMARY_AUTH_COOKIES as $targetDomain => $authNames) {
             if ($host && str_contains($host, $targetDomain)) {
                 $matchedTs = null;
                 foreach ($cookies as $c) {
                     if (!is_array($c) || empty($c['name'])) continue;
-                    if (in_array($c['name'], $authNames, true)) {
+
+                    // Cocokkan nama persis ATAU token chunked (misal: __Secure-next-auth.session-token.0, .1)
+                    $isAuthMatch = false;
+                    foreach ($authNames as $authName) {
+                        if ($c['name'] === $authName || str_starts_with($c['name'], $authName . '.')) {
+                            $isAuthMatch = true;
+                            break;
+                        }
+                    }
+
+                    if ($isAuthMatch) {
                         $ts = $c['expirationDate'] ?? $c['expires'] ?? null;
                         if ($ts !== null && is_numeric($ts)) {
                             $val = (int) $ts;
