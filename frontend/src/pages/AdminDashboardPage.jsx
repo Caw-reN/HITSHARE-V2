@@ -3196,18 +3196,9 @@ export default function AdminDashboardPage() {
             <div className="bg-white p-6 rounded-3xl border border-[#E8E8DF] shadow-bone space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h3 className="text-base font-bold text-neutral-900 flex items-center gap-2">
-                    <span>Manajemen Cookie Akun</span>
-                    {cookieSummary && (cookieSummary.logged_out + cookieSummary.expired > 0) && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300">
-                        <AlertTriangle className="w-3 h-3 text-rose-600" />
-                        {cookieSummary.logged_out + cookieSummary.expired} Bermasalah
-                      </span>
-                    )}
+                  <h3 className="text-base font-bold text-neutral-900">
+                    Manajemen Cookie Akun
                   </h3>
-                  <p className="text-xs text-neutral-500 mt-0.5">
-                    Warna kartu langsung menandakan status kesehatan sesi login: 🔴 Merah (Logout / Kadaluarsa), 🟡 Kuning (Segera Habis), 🟢 Hijau (Aktif & Valid).
-                  </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
                   <button
