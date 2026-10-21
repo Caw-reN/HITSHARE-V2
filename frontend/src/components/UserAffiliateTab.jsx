@@ -890,33 +890,31 @@ export default function UserAffiliateTab({ profile, toast }) {
                   <span className="px-2.5 py-1 rounded-lg bg-[#EAEAE3] text-neutral-800 font-bold text-xs uppercase tracking-wider">
                     {bankInfo.bank_name}
                   </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowAccountDetails((prev) => !prev)}
-                      className="p-1 px-2.5 text-neutral-500 hover:text-neutral-900 hover:bg-[#EAEAE3] rounded-lg transition-all cursor-pointer flex items-center gap-1.5 border border-transparent hover:border-[#DDDDCF]"
-                      title={showAccountDetails ? 'Sembunyikan detail rekening' : 'Tampilkan detail rekening'}
-                    >
-                      {showAccountDetails ? (
-                        <EyeOff className="w-3.5 h-3.5 text-neutral-600" />
-                      ) : (
-                        <Eye className="w-3.5 h-3.5 text-neutral-600" />
-                      )}
-                      <span className="text-[11px] font-semibold text-neutral-600">
-                        {showAccountDetails ? 'Sensor' : 'Lihat'}
-                      </span>
-                    </button>
-                    <span className="text-[10px] text-neutral-400 font-semibold uppercase tracking-wider hidden sm:inline">
-                      Bank / E-Wallet
-                    </span>
-                  </div>
+                  <span className="text-[10px] text-neutral-400 font-semibold uppercase tracking-wider">
+                    Bank / E-Wallet
+                  </span>
                 </div>
 
                 <div>
-                  <div className="font-mono text-lg font-black text-neutral-900 tracking-wider">
-                    {showAccountDetails
-                      ? bankInfo.bank_account_number
-                      : maskAccountNumber(bankInfo.bank_account_number)}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-mono text-lg font-black text-neutral-900 tracking-wider">
+                      {showAccountDetails
+                        ? bankInfo.bank_account_number
+                        : maskAccountNumber(bankInfo.bank_account_number)}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowAccountDetails((prev) => !prev)}
+                      className="p-1.5 text-neutral-400 hover:text-neutral-800 hover:bg-[#EAEAE3] rounded-lg transition-all cursor-pointer flex items-center justify-center shrink-0"
+                      title={showAccountDetails ? 'Sembunyikan nomor rekening' : 'Tampilkan nomor rekening'}
+                      aria-label="Toggle sensor nomor rekening"
+                    >
+                      {showAccountDetails ? (
+                        <EyeOff className="w-4.5 h-4.5 text-neutral-500 hover:text-neutral-800" />
+                      ) : (
+                        <Eye className="w-4.5 h-4.5 text-neutral-500 hover:text-neutral-800" />
+                      )}
+                    </button>
                   </div>
                   <div className="text-xs text-neutral-600 mt-0.5">
                     a.n.{' '}
