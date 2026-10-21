@@ -901,16 +901,7 @@ export default function AdminAffiliateTab({ toast, showConfirm }) {
             {/* Toggle Enable */}
             <div className="flex items-center justify-between p-4 sm:p-5 bg-[#FBFBF9] rounded-2xl border border-[#EAEAE3]">
               <div className="space-y-0.5 pr-4">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-sm text-neutral-900">Aktifkan Program Afiliasi</span>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    settings.affiliate_enabled
-                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                      : 'bg-neutral-200 text-neutral-700'
-                  }`}>
-                    {settings.affiliate_enabled ? 'Aktif' : 'Nonaktif'}
-                  </span>
-                </div>
+                <div className="font-bold text-sm text-neutral-900">Aktifkan Program Afiliasi</div>
                 <div className="text-xs text-neutral-500 leading-relaxed">
                   Jika dinonaktifkan, kode referral baru tidak akan dapat digunakan saat checkout pendaftaran.
                 </div>
@@ -976,22 +967,11 @@ export default function AdminAffiliateTab({ toast, showConfirm }) {
             </div>
 
             {/* Bonus Masa Aktif untuk Pembeli Referral (Hari) */}
-            <div className="p-4 sm:p-5 bg-emerald-50/50 rounded-2xl border border-emerald-200/80 space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div>
-                  <label className="text-xs font-bold text-neutral-800 uppercase tracking-wider flex items-center gap-1.5">
-                    <span>Bonus Masa Aktif untuk Pengguna Referral</span>
-                    <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
-                      Benefit Pembeli
-                    </span>
-                  </label>
-                  <p className="text-[11px] text-neutral-500 mt-0.5">
-                    Jumlah hari gratis tambahan yang didapatkan pembeli baru saat mendaftar via referral.
-                  </p>
-                </div>
-              </div>
-
-              <div className="relative max-w-xs">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-neutral-700 uppercase tracking-wider block">
+                Bonus Tambahan Masa Aktif untuk Pengguna Referral (Hari)
+              </label>
+              <div className="relative">
                 <input
                   type="number"
                   min={0}
@@ -999,14 +979,14 @@ export default function AdminAffiliateTab({ toast, showConfirm }) {
                   step={1}
                   value={settings.affiliate_referral_bonus_days ?? 3}
                   onChange={(e) => setSettings({ ...settings, affiliate_referral_bonus_days: parseInt(e.target.value, 10) || 0 })}
-                  className="w-full px-4 py-3 bg-white border border-[#DDDDCF] rounded-2xl text-sm font-bold text-neutral-900 focus:outline-none focus:border-neutral-900 pr-16 shadow-2xs transition-all"
+                  className="w-full px-4 py-3 bg-[#FBFBF9] border border-[#DDDDCF] rounded-2xl text-sm font-bold text-neutral-900 focus:outline-none focus:border-neutral-900 focus:bg-white pr-16 transition-all"
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-neutral-400">
                   Hari
                 </span>
               </div>
-              <p className="text-[11px] text-emerald-700 font-medium">
-                💡 Isi <strong>0</strong> jika tidak ingin memberikan bonus tambahan masa aktif kepada pembeli.
+              <p className="text-[11px] text-neutral-400">
+                Jumlah hari tambahan masa aktif langganan gratis yang didapatkan pembeli baru saat mendaftar menggunakan kode referral afiliasi (misal: 3 hari, 7 hari). Isi 0 jika tidak ada bonus tambahan.
               </p>
             </div>
 
