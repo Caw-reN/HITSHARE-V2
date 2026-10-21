@@ -129,11 +129,11 @@ class AdminOrderController extends Controller
                 }
             }
 
-            // Settle Affiliate Commission (First purchase only, identical to PaymentController::activateUser)
+            // Settle Affiliate Commission (First purchase & renewals)
             if ($order->referred_by_id && $order->commission_amount > 0) {
                 $affiliateEnabled = Setting::get('affiliate_enabled', '1') !== '0';
                 if ($affiliateEnabled) {
-                    $alreadyCredited = AffiliateEarning::where('referred_user_id', $user->id)->exists();
+                    $alreadyCredited = AffiliateEarning::where('order_id', $order->order_id)->exists();
                     if (!$alreadyCredited) {
                         $affiliateUser = User::where('id', $order->referred_by_id)->lockForUpdate()->first();
                         if ($affiliateUser && $affiliateUser->is_affiliate && $affiliateUser->id !== $user->id) {

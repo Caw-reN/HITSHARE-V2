@@ -424,10 +424,11 @@ class AdminAffiliateController extends Controller
     public function getSettings(): JsonResponse
     {
         return response()->json([
-            'affiliate_enabled'             => Setting::get('affiliate_enabled', '1') !== '0',
-            'affiliate_commission_default'  => (int) Setting::get('affiliate_commission_default', 20000),
-            'affiliate_min_payout'          => (int) Setting::get('affiliate_min_payout', 50000),
-            'affiliate_referral_bonus_days' => (int) Setting::get('affiliate_referral_bonus_days', 3),
+            'affiliate_enabled'              => Setting::get('affiliate_enabled', '1') !== '0',
+            'affiliate_commission_default'   => (int) Setting::get('affiliate_commission_default', 20000),
+            'affiliate_commission_recurring' => (int) Setting::get('affiliate_commission_recurring', 10000),
+            'affiliate_min_payout'           => (int) Setting::get('affiliate_min_payout', 50000),
+            'affiliate_referral_bonus_days'  => (int) Setting::get('affiliate_referral_bonus_days', 3),
         ]);
     }
 
@@ -437,10 +438,11 @@ class AdminAffiliateController extends Controller
     public function updateSettings(Request $request): JsonResponse
     {
         $request->validate([
-            'affiliate_enabled'             => 'required|boolean',
-            'affiliate_commission_default'  => 'required|integer|min:0',
-            'affiliate_min_payout'          => 'required|integer|min:1000',
-            'affiliate_referral_bonus_days' => 'nullable|integer|min:0|max:365',
+            'affiliate_enabled'              => 'required|boolean',
+            'affiliate_commission_default'   => 'required|integer|min:0',
+            'affiliate_commission_recurring' => 'required|integer|min:0',
+            'affiliate_min_payout'           => 'required|integer|min:1000',
+            'affiliate_referral_bonus_days'  => 'nullable|integer|min:0|max:365',
         ]);
 
         $bonusDays = $request->filled('affiliate_referral_bonus_days')
@@ -449,16 +451,18 @@ class AdminAffiliateController extends Controller
 
         Setting::set('affiliate_enabled', $request->boolean('affiliate_enabled') ? '1' : '0');
         Setting::set('affiliate_commission_default', (string) $request->input('affiliate_commission_default'));
+        Setting::set('affiliate_commission_recurring', (string) $request->input('affiliate_commission_recurring'));
         Setting::set('affiliate_min_payout', (string) $request->input('affiliate_min_payout'));
         Setting::set('affiliate_referral_bonus_days', (string) $bonusDays);
 
         return response()->json([
             'message'  => 'Pengaturan program afiliasi berhasil diperbarui.',
             'settings' => [
-                'affiliate_enabled'             => $request->boolean('affiliate_enabled'),
-                'affiliate_commission_default'  => (int) $request->input('affiliate_commission_default'),
-                'affiliate_min_payout'          => (int) $request->input('affiliate_min_payout'),
-                'affiliate_referral_bonus_days' => $bonusDays,
+                'affiliate_enabled'              => $request->boolean('affiliate_enabled'),
+                'affiliate_commission_default'   => (int) $request->input('affiliate_commission_default'),
+                'affiliate_commission_recurring' => (int) $request->input('affiliate_commission_recurring'),
+                'affiliate_min_payout'           => (int) $request->input('affiliate_min_payout'),
+                'affiliate_referral_bonus_days'  => $bonusDays,
             ],
         ]);
     }

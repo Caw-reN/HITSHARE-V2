@@ -394,21 +394,26 @@ class PaymentController extends Controller
             }
         }
 
-        // Check affiliate attribution for first purchase
+        // Check affiliate attribution (First purchase or recurring renewal)
         $commissionAmount = 0;
         $refAffiliate = null;
         if ($user->referred_by_id) {
-            $hasPriorPaid = Order::where('user_id', $user->id)->where('status', 'paid')->exists();
-            $hasPriorEarnings = AffiliateEarning::where('referred_user_id', $user->id)->exists();
-            if (!$hasPriorPaid && !$hasPriorEarnings) {
-                $refAffiliate = User::where('id', $user->referred_by_id)->where('is_affiliate', true)->first();
-                if ($refAffiliate && $refAffiliate->id !== $user->id) {
-                    $affiliateEnabled = Setting::get('affiliate_enabled', '1') !== '0';
-                    if ($affiliateEnabled) {
+            $refAffiliate = User::where('id', $user->referred_by_id)->where('is_affiliate', true)->first();
+            if ($refAffiliate && $refAffiliate->id !== $user->id) {
+                $affiliateEnabled = Setting::get('affiliate_enabled', '1') !== '0';
+                if ($affiliateEnabled) {
+                    $hasPriorPaid = Order::where('user_id', $user->id)->where('status', 'paid')->exists();
+                    $hasPriorEarnings = AffiliateEarning::where('referred_user_id', $user->id)->exists();
+                    $isFirstPurchase = !$hasPriorPaid && !$hasPriorEarnings;
+
+                    if ($isFirstPurchase) {
                         $nominalComm = (int) ($refAffiliate->affiliate_commission ?? Setting::get('affiliate_commission_default', 20000));
-                        // Anti negative margin: commission cannot exceed order subtotal
-                        $commissionAmount = min($nominalComm, max(0, $subtotal));
+                    } else {
+                        // Recurring renewal commission
+                        $nominalComm = (int) Setting::get('affiliate_commission_recurring', 10000);
                     }
+                    // Anti negative margin: commission cannot exceed order subtotal
+                    $commissionAmount = min($nominalComm, max(0, $subtotal));
                 }
             }
         }
@@ -861,14 +866,17 @@ class PaymentController extends Controller
 
         $commissionAmount = 0;
         if ($referrer) {
-            // Commission strictly on first purchase only
             $hasPaidOrders = Order::where('user_id', $user->id)->where('status', 'paid')->exists();
             $hasEarnings = AffiliateEarning::where('referred_user_id', $user->id)->exists();
-            if (!$hasPaidOrders && !$hasEarnings) {
+            $isFirstPurchase = !$hasPaidOrders && !$hasEarnings;
+
+            if ($isFirstPurchase) {
                 $nominalComm = (int) ($referrer->affiliate_commission ?? Setting::get('affiliate_commission_default', 20000));
-                // Anti negative margin: commission cannot exceed order subtotal
-                $commissionAmount = min($nominalComm, max(0, $subtotal));
+            } else {
+                $nominalComm = (int) Setting::get('affiliate_commission_recurring', 10000);
             }
+            // Anti negative margin: commission cannot exceed order subtotal
+            $commissionAmount = min($nominalComm, max(0, $subtotal));
         }
 
         $order = Order::create([
@@ -1063,11 +1071,11 @@ class PaymentController extends Controller
                 }
             }
 
-            // ── Settle Affiliate Commission (First purchase only) ──
+            // ── Settle Affiliate Commission (First purchase & renewals) ──
             if ($lockedOrder->referred_by_id && $lockedOrder->commission_amount > 0) {
                 $affiliateEnabled = Setting::get('affiliate_enabled', '1') !== '0';
                 if ($affiliateEnabled) {
-                    $alreadyCredited = AffiliateEarning::where('referred_user_id', $user->id)->exists();
+                    $alreadyCredited = AffiliateEarning::where('order_id', $lockedOrder->order_id)->exists();
                     if (!$alreadyCredited) {
                         $affiliateUser = User::where('id', $lockedOrder->referred_by_id)->lockForUpdate()->first();
                         if ($affiliateUser && $affiliateUser->is_affiliate && $affiliateUser->id !== $user->id) {

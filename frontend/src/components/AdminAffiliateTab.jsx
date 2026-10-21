@@ -917,12 +917,12 @@ export default function AdminAffiliateTab({ toast, showConfirm }) {
               </label>
             </div>
 
-            {/* Grid 2 Kolom untuk Parameter Komisi & Minimal Payout */}
+            {/* Grid 2x2 Kolom untuk Parameter Afiliasi */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Default Commission */}
+              {/* Default Commission (First Purchase) */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-neutral-700 uppercase tracking-wider block">
-                  Default Komisi Pembelian Pertama
+                  Komisi Pembelian Pertama
                 </label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-bold text-neutral-400">
@@ -938,7 +938,30 @@ export default function AdminAffiliateTab({ toast, showConfirm }) {
                   />
                 </div>
                 <p className="text-[11px] text-neutral-400 leading-tight">
-                  Berlaku jika afiliator tidak memiliki komisi khusus.
+                  Komisi saat pengguna pertama kali mendaftar / checkout.
+                </p>
+              </div>
+
+              {/* Recurring Commission (Renewals / Repeat Orders) */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-neutral-700 uppercase tracking-wider block">
+                  Komisi Perpanjangan Langganan
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-bold text-neutral-400">
+                    Rp
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1000}
+                    value={settings.affiliate_commission_recurring ?? 10000}
+                    onChange={(e) => setSettings({ ...settings, affiliate_commission_recurring: parseInt(e.target.value, 10) || 0 })}
+                    className="w-full pl-10 pr-4 py-3 bg-[#FBFBF9] border border-[#DDDDCF] rounded-2xl text-sm font-bold text-neutral-900 focus:outline-none focus:border-neutral-900 focus:bg-white transition-all"
+                  />
+                </div>
+                <p className="text-[11px] text-neutral-400 leading-tight">
+                  Komisi seterusnya setiap kali pengguna memperpanjang langganan.
                 </p>
               </div>
 
@@ -961,33 +984,33 @@ export default function AdminAffiliateTab({ toast, showConfirm }) {
                   />
                 </div>
                 <p className="text-[11px] text-neutral-400 leading-tight">
-                  Batas minimum saldo penarikan afiliator.
+                  Batas minimum saldo penarikan dana afiliator.
                 </p>
               </div>
-            </div>
 
-            {/* Bonus Masa Aktif untuk Pembeli Referral (Hari) */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-neutral-700 uppercase tracking-wider block">
-                Bonus Tambahan Masa Aktif untuk Pengguna Referral (Hari)
-              </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  min={0}
-                  max={365}
-                  step={1}
-                  value={settings.affiliate_referral_bonus_days ?? 3}
-                  onChange={(e) => setSettings({ ...settings, affiliate_referral_bonus_days: parseInt(e.target.value, 10) || 0 })}
-                  className="w-full px-4 py-3 bg-[#FBFBF9] border border-[#DDDDCF] rounded-2xl text-sm font-bold text-neutral-900 focus:outline-none focus:border-neutral-900 focus:bg-white pr-16 transition-all"
-                />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-neutral-400">
-                  Hari
-                </span>
+              {/* Bonus Masa Aktif untuk Pembeli Referral (Hari) */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-neutral-700 uppercase tracking-wider block">
+                  Bonus Masa Aktif Pembeli
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={0}
+                    max={365}
+                    step={1}
+                    value={settings.affiliate_referral_bonus_days ?? 3}
+                    onChange={(e) => setSettings({ ...settings, affiliate_referral_bonus_days: parseInt(e.target.value, 10) || 0 })}
+                    className="w-full pl-4 pr-16 py-3 bg-[#FBFBF9] border border-[#DDDDCF] rounded-2xl text-sm font-bold text-neutral-900 focus:outline-none focus:border-neutral-900 focus:bg-white transition-all"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-neutral-400">
+                    Hari
+                  </span>
+                </div>
+                <p className="text-[11px] text-neutral-400 leading-tight">
+                  Hari gratis tambahan untuk pembeli dengan kode referral.
+                </p>
               </div>
-              <p className="text-[11px] text-neutral-400">
-                Jumlah hari tambahan masa aktif langganan gratis yang didapatkan pembeli baru saat mendaftar menggunakan kode referral afiliasi (misal: 3 hari, 7 hari). Isi 0 jika tidak ada bonus tambahan.
-              </p>
             </div>
 
             <div className="pt-2">
