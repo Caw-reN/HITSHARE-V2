@@ -884,79 +884,114 @@ export default function AdminAffiliateTab({ toast, showConfirm }) {
           SUBTAB 4: PENGATURAN GLOBAL
          ══════════════════════════════════════════════════════════ */}
       {subtab === 'settings' && (
-        <div className="max-w-xl bg-white p-6 sm:p-8 rounded-3xl border border-[#E8E8DF] shadow-bone space-y-6">
-          <div className="space-y-1">
-            <h3 className="text-base font-bold text-neutral-900">Pengaturan Sistem Afiliasi</h3>
-            <p className="text-xs text-neutral-500">
-              Konfigurasi parameter default untuk semua afiliator di Hitshare.
-            </p>
+        <div className="max-w-2xl mx-auto w-full bg-white p-6 sm:p-8 rounded-3xl border border-[#E8E8DF] shadow-bone space-y-6">
+          <div className="flex items-center gap-3.5 pb-5 border-b border-[#F0F0EB]">
+            <div className="w-11 h-11 rounded-2xl bg-neutral-900 text-white flex items-center justify-center shrink-0 shadow-sm">
+              <Settings className="w-5 h-5 text-neutral-200" />
+            </div>
+            <div>
+              <h3 className="text-base sm:text-lg font-bold text-neutral-900">Pengaturan Sistem Afiliasi</h3>
+              <p className="text-xs text-neutral-500 mt-0.5">
+                Konfigurasi parameter default komisi, pencairan saldo, dan bonus masa aktif referral.
+              </p>
+            </div>
           </div>
 
           <form onSubmit={handleSaveSettings} className="space-y-5">
             {/* Toggle Enable */}
-            <div className="flex items-center justify-between p-4 bg-[#FBFBF9] rounded-2xl border border-[#EAEAE3]">
-              <div>
-                <div className="font-bold text-sm text-neutral-900">Aktifkan Program Afiliasi</div>
-                <div className="text-xs text-neutral-500">
+            <div className="flex items-center justify-between p-4 sm:p-5 bg-[#FBFBF9] rounded-2xl border border-[#EAEAE3]">
+              <div className="space-y-0.5 pr-4">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-sm text-neutral-900">Aktifkan Program Afiliasi</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    settings.affiliate_enabled
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                      : 'bg-neutral-200 text-neutral-700'
+                  }`}>
+                    {settings.affiliate_enabled ? 'Aktif' : 'Nonaktif'}
+                  </span>
+                </div>
+                <div className="text-xs text-neutral-500 leading-relaxed">
                   Jika dinonaktifkan, kode referral baru tidak akan dapat digunakan saat checkout pendaftaran.
                 </div>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
+              <label className="relative inline-flex items-center cursor-pointer shrink-0">
                 <input
                   type="checkbox"
                   checked={settings.affiliate_enabled}
                   onChange={(e) => setSettings({ ...settings, affiliate_enabled: e.target.checked })}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-neutral-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-neutral-900"></div>
+                <div className="w-12 h-6.5 bg-neutral-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-neutral-900"></div>
               </label>
             </div>
 
-            {/* Default Commission */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-neutral-700 uppercase tracking-wider">
-                Default Komisi per Pembelian Pertama (Rp)
-              </label>
-              <input
-                type="number"
-                min={0}
-                step={1000}
-                value={settings.affiliate_commission_default}
-                onChange={(e) => setSettings({ ...settings, affiliate_commission_default: parseInt(e.target.value, 10) || 0 })}
-                className="w-full px-4 py-3 bg-[#FBFBF9] border border-[#DDDDCF] rounded-2xl text-sm font-bold text-neutral-900 focus:outline-none focus:border-neutral-900 focus:bg-white"
-              />
-              <p className="text-[11px] text-neutral-400">
-                Nilai komisi ini berlaku jika afiliator tidak memiliki pengaturan komisi khusus.
-              </p>
-            </div>
+            {/* Grid 2 Kolom untuk Parameter Komisi & Minimal Payout */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Default Commission */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-neutral-700 uppercase tracking-wider block">
+                  Default Komisi Pembelian Pertama
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-bold text-neutral-400">
+                    Rp
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1000}
+                    value={settings.affiliate_commission_default}
+                    onChange={(e) => setSettings({ ...settings, affiliate_commission_default: parseInt(e.target.value, 10) || 0 })}
+                    className="w-full pl-10 pr-4 py-3 bg-[#FBFBF9] border border-[#DDDDCF] rounded-2xl text-sm font-bold text-neutral-900 focus:outline-none focus:border-neutral-900 focus:bg-white transition-all"
+                  />
+                </div>
+                <p className="text-[11px] text-neutral-400 leading-tight">
+                  Berlaku jika afiliator tidak memiliki komisi khusus.
+                </p>
+              </div>
 
-            {/* Min Payout */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-neutral-700 uppercase tracking-wider">
-                Minimal Penarikan Saldo (Rp)
-              </label>
-              <input
-                type="number"
-                min={1000}
-                step={1000}
-                value={settings.affiliate_min_payout}
-                onChange={(e) => setSettings({ ...settings, affiliate_min_payout: parseInt(e.target.value, 10) || 0 })}
-                className="w-full px-4 py-3 bg-[#FBFBF9] border border-[#DDDDCF] rounded-2xl text-sm font-bold text-neutral-900 focus:outline-none focus:border-neutral-900 focus:bg-white"
-              />
-              <p className="text-[11px] text-neutral-400">
-                Batas minimum saldo yang harus dimiliki afiliator sebelum dapat mengajukan penarikan.
-              </p>
+              {/* Min Payout */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-neutral-700 uppercase tracking-wider block">
+                  Minimal Penarikan Saldo
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-bold text-neutral-400">
+                    Rp
+                  </span>
+                  <input
+                    type="number"
+                    min={1000}
+                    step={1000}
+                    value={settings.affiliate_min_payout}
+                    onChange={(e) => setSettings({ ...settings, affiliate_min_payout: parseInt(e.target.value, 10) || 0 })}
+                    className="w-full pl-10 pr-4 py-3 bg-[#FBFBF9] border border-[#DDDDCF] rounded-2xl text-sm font-bold text-neutral-900 focus:outline-none focus:border-neutral-900 focus:bg-white transition-all"
+                  />
+                </div>
+                <p className="text-[11px] text-neutral-400 leading-tight">
+                  Batas minimum saldo penarikan afiliator.
+                </p>
+              </div>
             </div>
 
             {/* Bonus Masa Aktif untuk Pembeli Referral (Hari) */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-neutral-700 uppercase tracking-wider flex items-center gap-1.5">
-                <span>Bonus Tambahan Masa Aktif untuk Pengguna Referral (Hari)</span>
-                <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                  Benefit Pembeli
-                </span>
-              </label>
-              <div className="relative">
+            <div className="p-4 sm:p-5 bg-emerald-50/50 rounded-2xl border border-emerald-200/80 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <label className="text-xs font-bold text-neutral-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>Bonus Masa Aktif untuk Pengguna Referral</span>
+                    <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
+                      Benefit Pembeli
+                    </span>
+                  </label>
+                  <p className="text-[11px] text-neutral-500 mt-0.5">
+                    Jumlah hari gratis tambahan yang didapatkan pembeli baru saat mendaftar via referral.
+                  </p>
+                </div>
+              </div>
+
+              <div className="relative max-w-xs">
                 <input
                   type="number"
                   min={0}
@@ -964,14 +999,14 @@ export default function AdminAffiliateTab({ toast, showConfirm }) {
                   step={1}
                   value={settings.affiliate_referral_bonus_days ?? 3}
                   onChange={(e) => setSettings({ ...settings, affiliate_referral_bonus_days: parseInt(e.target.value, 10) || 0 })}
-                  className="w-full px-4 py-3 bg-[#FBFBF9] border border-[#DDDDCF] rounded-2xl text-sm font-bold text-neutral-900 focus:outline-none focus:border-neutral-900 focus:bg-white pr-16"
+                  className="w-full px-4 py-3 bg-white border border-[#DDDDCF] rounded-2xl text-sm font-bold text-neutral-900 focus:outline-none focus:border-neutral-900 pr-16 shadow-2xs transition-all"
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-neutral-400">
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                   Hari
                 </span>
               </div>
-              <p className="text-[11px] text-neutral-400">
-                Jumlah hari tambahan masa aktif langganan gratis yang didapatkan pembeli baru saat mendaftar menggunakan kode referral afiliasi (misal: 3 hari, 7 hari). Isi 0 jika tidak ada bonus tambahan.
+              <p className="text-[11px] text-emerald-700 font-medium">
+                💡 Isi <strong>0</strong> jika tidak ingin memberikan bonus tambahan masa aktif kepada pembeli.
               </p>
             </div>
 
@@ -979,9 +1014,13 @@ export default function AdminAffiliateTab({ toast, showConfirm }) {
               <button
                 type="submit"
                 disabled={settingsSaving}
-                className="w-full py-3.5 bg-neutral-900 hover:bg-black disabled:opacity-50 text-white rounded-2xl font-bold text-sm shadow-sm transition-all cursor-pointer"
+                className="w-full py-3.5 bg-neutral-900 hover:bg-black disabled:opacity-50 text-white rounded-2xl font-bold text-sm shadow-sm transition-all cursor-pointer flex items-center justify-center gap-2"
               >
-                {settingsSaving ? 'Menyimpan...' : 'Simpan Pengaturan Afiliasi'}
+                {settingsSaving ? (
+                  <span>Menyimpan Pengaturan...</span>
+                ) : (
+                  <span>Simpan Pengaturan Afiliasi</span>
+                )}
               </button>
             </div>
           </form>
