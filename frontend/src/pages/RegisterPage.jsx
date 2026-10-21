@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api/client';
+import { useAuthStore } from '../store/authStore';
 import {
   Mail,
   Phone,
@@ -242,6 +243,14 @@ export default function RegisterPage() {
       }
 
       const res = await api.post('/register/checkout', payload);
+
+      if (res.data?.token) {
+        useAuthStore.getState().setAuth({
+          token: res.data.token,
+          role: 'user',
+          user: res.data.user,
+        });
+      }
 
       navigate(`/daftar/bayar/${res.data.order_id}`, { state: { order: res.data } });
     } catch (err) {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import api from '../api/client';
+import { useAuthStore } from '../store/authStore';
 import {
   Clock,
   Check,
@@ -46,6 +47,17 @@ export default function RegisterPaymentPage() {
     return () => clearInterval(timer);
   }, [paymentSuccess, navigate]);
 
+  // Store auth if passed in router state from checkout
+  useEffect(() => {
+    if (location.state?.order?.token) {
+      useAuthStore.getState().setAuth({
+        token: location.state.order.token,
+        role: 'user',
+        user: location.state.order.user,
+      });
+    }
+  }, [location.state]);
+
   // Initial fetch if order was not passed via router state (e.g. page refresh or direct link)
   useEffect(() => {
     let isMounted = true;
@@ -64,6 +76,13 @@ export default function RegisterPaymentPage() {
         setOrder(res.data);
         if (res.data.status === 'paid') {
           setPaymentSuccess(true);
+          if (res.data.token) {
+            useAuthStore.getState().setAuth({
+              token: res.data.token,
+              role: 'user',
+              user: res.data.user,
+            });
+          }
         }
       } catch (err) {
         if (!isMounted) return;
@@ -93,6 +112,13 @@ export default function RegisterPaymentPage() {
         if (res.data.status === 'paid') {
           setPaymentSuccess(true);
           setOrder((prev) => ({ ...prev, ...res.data, status: 'paid' }));
+          if (res.data.token) {
+            useAuthStore.getState().setAuth({
+              token: res.data.token,
+              role: 'user',
+              user: res.data.user,
+            });
+          }
           if (pollingRef.current) clearInterval(pollingRef.current);
         } else if (res.data.status === 'expired' || res.data.status === 'cancelled') {
           setOrder((prev) => ({ ...prev, ...res.data, status: res.data.status }));

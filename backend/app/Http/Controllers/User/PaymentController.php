@@ -900,8 +900,19 @@ class PaymentController extends Controller
             'expires_at'        => $parsedExp,
         ]);
 
+        $token = $user->createToken('hitshare-web')->plainTextToken;
+
         return response()->json([
             'order_id'        => $orderId,
+            'token'           => $token,
+            'user'            => [
+                'id'         => $user->id,
+                'name'       => $user->name,
+                'email'      => $user->email,
+                'role'       => 'user',
+                'is_active'  => (bool) $user->is_active,
+                'expires_at' => $user->expires_at?->toISOString(),
+            ],
             'plan'            => $plan,
             'plan_label'      => $planData['label'],
             'amount'          => $grossAmount,
@@ -957,8 +968,21 @@ class PaymentController extends Controller
             'customer_email'  => $user->email,
         ];
 
+        $attachAuthToken = function (array &$payload, User $u) {
+            $payload['token'] = $u->createToken('hitshare-web')->plainTextToken;
+            $payload['user'] = [
+                'id'         => $u->id,
+                'name'       => $u->name,
+                'email'      => $u->email,
+                'role'       => 'user',
+                'is_active'  => (bool) $u->is_active,
+                'expires_at' => $u->expires_at?->toISOString(),
+            ];
+        };
+
         if ($order->status === 'paid') {
             $basePayload['status'] = 'paid';
+            $attachAuthToken($basePayload, $user);
             return response()->json($basePayload);
         }
 
@@ -993,6 +1017,7 @@ class PaymentController extends Controller
                 $freshOrder = $order->fresh();
                 $basePayload['status'] = 'paid';
                 $basePayload['paid_at'] = $freshOrder->paid_at?->toISOString() ?? now()->toISOString();
+                $attachAuthToken($basePayload, $user->fresh());
                 return response()->json($basePayload);
             } elseif ($newStatus !== $order->status) {
                 $order->status = $newStatus;
