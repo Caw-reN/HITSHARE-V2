@@ -103,6 +103,7 @@ class AdminOrderController extends Controller
             $newExpiry = $baseDate->copy()->addDays($totalDays);
 
             $order->status = 'paid';
+            $order->duration_days = $totalDays;
             $order->paid_at = $now;
             $order->save();
 

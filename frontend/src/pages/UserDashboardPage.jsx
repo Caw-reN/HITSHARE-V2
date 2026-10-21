@@ -868,7 +868,7 @@ export default function UserDashboardPage() {
       if (profile.created_at && profile.expires_at) {
         const start = new Date(profile.created_at).getTime();
         const end = new Date(profile.expires_at).getTime();
-        const diff = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+        const diff = Math.round((end - start) / (1000 * 60 * 60 * 24));
         if (diff >= daysLeft) totalDays = diff;
       }
     }

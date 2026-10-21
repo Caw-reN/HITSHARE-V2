@@ -1068,8 +1068,9 @@ class PaymentController extends Controller
             $paidAt = $paidAtIso ? Carbon::parse($paidAtIso, 'Asia/Jakarta')->utc() : $now;
 
             $lockedOrder->update([
-                'status'  => 'paid',
-                'paid_at' => $paidAt,
+                'status'        => 'paid',
+                'duration_days' => $totalDays,
+                'paid_at'       => $paidAt,
             ]);
 
             $user->update([
