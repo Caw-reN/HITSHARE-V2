@@ -22,7 +22,27 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
+
+function maskAccountNumber(number) {
+  if (!number) return '••••';
+  const clean = String(number).trim();
+  if (clean.length <= 4) return '••••';
+  const last4 = clean.slice(-4);
+  return `•••• •••• ${last4}`;
+}
+
+function maskAccountHolder(name) {
+  if (!name) return '••••';
+  const parts = String(name).trim().split(/\s+/);
+  if (parts.length === 1) {
+    const w = parts[0];
+    return w.length > 2 ? `${w.slice(0, 2)}••••` : '••••';
+  }
+  return `${parts[0]} ${parts[1]?.slice(0, 1) || ''}••••`;
+}
 
 const BANK_EWALLET_SECTIONS = [
   {
@@ -230,6 +250,7 @@ export default function UserAffiliateTab({ profile, toast }) {
   const [bankError, setBankError] = useState('');
   const [selectedMethod, setSelectedMethod] = useState('Bank BNI');
   const [customEwalletName, setCustomEwalletName] = useState('');
+  const [showAccountDetails, setShowAccountDetails] = useState(false);
 
   const openBankModal = () => {
     if (bankName) {
@@ -634,7 +655,7 @@ export default function UserAffiliateTab({ profile, toast }) {
             <ul className="text-xs text-neutral-600 space-y-3 leading-relaxed">
               <li className="flex items-start gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-neutral-400 mt-1.5 shrink-0"></span>
-                <span>Komisi diberikan 1 kali per pengguna baru pada pembelian paket langganan pertamanya.</span>
+                <span>Komisi diberikan pada pembelian pertama dan juga seterusnya setiap kali member memperpanjang langganan.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-neutral-400 mt-1.5 shrink-0"></span>
@@ -869,16 +890,41 @@ export default function UserAffiliateTab({ profile, toast }) {
                   <span className="px-2.5 py-1 rounded-lg bg-[#EAEAE3] text-neutral-800 font-bold text-xs uppercase tracking-wider">
                     {bankInfo.bank_name}
                   </span>
-                  <span className="text-[10px] text-neutral-400 font-semibold uppercase tracking-wider">
-                    Bank / E-Wallet
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowAccountDetails((prev) => !prev)}
+                      className="p-1 px-2.5 text-neutral-500 hover:text-neutral-900 hover:bg-[#EAEAE3] rounded-lg transition-all cursor-pointer flex items-center gap-1.5 border border-transparent hover:border-[#DDDDCF]"
+                      title={showAccountDetails ? 'Sembunyikan detail rekening' : 'Tampilkan detail rekening'}
+                    >
+                      {showAccountDetails ? (
+                        <EyeOff className="w-3.5 h-3.5 text-neutral-600" />
+                      ) : (
+                        <Eye className="w-3.5 h-3.5 text-neutral-600" />
+                      )}
+                      <span className="text-[11px] font-semibold text-neutral-600">
+                        {showAccountDetails ? 'Sensor' : 'Lihat'}
+                      </span>
+                    </button>
+                    <span className="text-[10px] text-neutral-400 font-semibold uppercase tracking-wider hidden sm:inline">
+                      Bank / E-Wallet
+                    </span>
+                  </div>
                 </div>
+
                 <div>
                   <div className="font-mono text-lg font-black text-neutral-900 tracking-wider">
-                    {bankInfo.bank_account_number}
+                    {showAccountDetails
+                      ? bankInfo.bank_account_number
+                      : maskAccountNumber(bankInfo.bank_account_number)}
                   </div>
                   <div className="text-xs text-neutral-600 mt-0.5">
-                    a.n. <strong className="text-neutral-900 font-bold">{bankInfo.bank_account_holder}</strong>
+                    a.n.{' '}
+                    <strong className="text-neutral-900 font-bold">
+                      {showAccountDetails
+                        ? bankInfo.bank_account_holder
+                        : maskAccountHolder(bankInfo.bank_account_holder)}
+                    </strong>
                   </div>
                 </div>
 
