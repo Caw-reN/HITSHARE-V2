@@ -24,8 +24,27 @@ export default function RegisterPaymentPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [countdownSeconds, setCountdownSeconds] = useState(600);
+  const [redirectCountdown, setRedirectCountdown] = useState(5);
 
   const pollingRef = useRef(null);
+
+  // 5-Second Auto-redirect countdown upon payment success
+  useEffect(() => {
+    if (!paymentSuccess) return;
+
+    const timer = setInterval(() => {
+      setRedirectCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          navigate('/akun?status=registered');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [paymentSuccess, navigate]);
 
   // Initial fetch if order was not passed via router state (e.g. page refresh or direct link)
   useEffect(() => {
@@ -75,11 +94,6 @@ export default function RegisterPaymentPage() {
           setPaymentSuccess(true);
           setOrder((prev) => ({ ...prev, ...res.data, status: 'paid' }));
           if (pollingRef.current) clearInterval(pollingRef.current);
-
-          // Auto-redirect to dashboard after 2.5 seconds
-          setTimeout(() => {
-            navigate('/akun?status=registered');
-          }, 2500);
         } else if (res.data.status === 'expired' || res.data.status === 'cancelled') {
           setOrder((prev) => ({ ...prev, ...res.data, status: res.data.status }));
           if (pollingRef.current) clearInterval(pollingRef.current);
@@ -97,7 +111,7 @@ export default function RegisterPaymentPage() {
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
-  }, [orderId, paymentSuccess, navigate]);
+  }, [orderId, paymentSuccess]);
 
   // 10-Minute Countdown Timer
   useEffect(() => {
@@ -192,7 +206,8 @@ export default function RegisterPaymentPage() {
               <div className="space-y-1.5">
                 <h3 className="text-2xl font-black text-neutral-900 tracking-tight">Pembayaran Berhasil!</h3>
                 <p className="text-xs sm:text-sm text-neutral-600 max-w-xs mx-auto leading-relaxed">
-                  Akun HitShare Anda telah aktif seketika. Mengalihkan ke dashboard...
+                  Akun HitShare Anda telah aktif seketika. Mengalihkan ke dashboard dalam{' '}
+                  <span className="font-bold text-neutral-900">{redirectCountdown} detik</span>...
                 </p>
               </div>
 
@@ -202,7 +217,7 @@ export default function RegisterPaymentPage() {
                   onClick={() => navigate('/akun?status=registered')}
                   className="w-full py-3.5 px-5 text-sm font-bold text-white bg-neutral-900 hover:bg-neutral-800 rounded-2xl min-h-[46px] transition-all cursor-pointer shadow-md flex items-center justify-center gap-2"
                 >
-                  <span>Buka Dashboard Saya</span>
+                  <span>Buka Dashboard Sekarang ({redirectCountdown}s)</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
