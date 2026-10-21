@@ -89,7 +89,18 @@ class AdminOrderController extends Controller
 
             $now = now();
             $baseDate = ($user->expires_at && $user->expires_at->isFuture()) ? $user->expires_at : $now;
-            $newExpiry = $baseDate->copy()->addDays($order->duration_days);
+
+            // Hitung total durasi hari (durasi paket + bonus referral jika menggunakan kode referral)
+            $totalDays = (int) $order->duration_days;
+            $bonusDays = 0;
+            if ($order->referred_by_id) {
+                $bonusDays = (int) Setting::get('affiliate_referral_bonus_days', 3);
+                if ($bonusDays > 0) {
+                    $totalDays += $bonusDays;
+                }
+            }
+
+            $newExpiry = $baseDate->copy()->addDays($totalDays);
 
             $order->status = 'paid';
             $order->paid_at = $now;

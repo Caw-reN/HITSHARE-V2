@@ -628,11 +628,19 @@ export default function RegisterPage() {
                       <div className="flex items-center gap-2">
                         <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                         <div>
-                          <span className="font-semibold text-emerald-800">Direferensikan oleh: </span>
-                          <span className="font-bold text-emerald-950">{refVerified.referrer_name}</span>
-                          <span className="ml-1.5 px-1.5 py-0.5 rounded bg-emerald-100 font-mono text-[10px] font-bold text-emerald-800">
-                            {refVerified.code}
-                          </span>
+                          <div>
+                            <span className="font-semibold text-emerald-800">Direferensikan oleh: </span>
+                            <span className="font-bold text-emerald-950">{refVerified.referrer_name}</span>
+                            <span className="ml-1.5 px-1.5 py-0.5 rounded bg-emerald-100 font-mono text-[10px] font-bold text-emerald-800">
+                              {refVerified.code}
+                            </span>
+                          </div>
+                          {refVerified.bonus_days > 0 && (
+                            <div className="text-[11px] font-bold text-emerald-700 flex items-center gap-1 mt-0.5">
+                              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                              <span>Bonus Spesial: +{refVerified.bonus_days} Hari Ekstra Masa Aktif Langganan!</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                       <button

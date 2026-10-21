@@ -11,6 +11,7 @@ import {
   RotateCcw,
   ArrowRight,
   Loader2,
+  Gift,
 } from 'lucide-react';
 
 export default function RegisterPaymentPage() {
@@ -299,7 +300,13 @@ export default function RegisterPaymentPage() {
                     <span className="font-bold text-neutral-900 text-right">
                       {order.plan_label || (order.plan ? `Paket ${order.plan.toUpperCase()}` : 'HitShare')}
                       {order.duration_days && (
-                        <span className="font-normal text-neutral-500 ml-1">({order.duration_days} Hari)</span>
+                        <span className="font-normal text-neutral-500 ml-1">
+                          ({order.duration_days} Hari
+                          {Number(order.bonus_days || 0) > 0 ? (
+                            <span className="text-emerald-700 font-bold"> +{order.bonus_days} Hari Bonus</span>
+                          ) : ''}
+                          )
+                        </span>
                       )}
                     </span>
                   </div>
@@ -310,6 +317,18 @@ export default function RegisterPaymentPage() {
                       Rp {Number(order.original_amount || order.subtotal || order.amount).toLocaleString('id-ID')}
                     </span>
                   </div>
+
+                  {Number(order.bonus_days || 0) > 0 && (
+                    <div className="flex justify-between text-neutral-600">
+                      <span className="flex items-center gap-1 text-emerald-700 font-semibold">
+                        <Gift className="w-3.5 h-3.5 text-emerald-600" />
+                        Bonus Referral
+                      </span>
+                      <span className="font-bold text-emerald-700">
+                        +{order.bonus_days} Hari Ekstra
+                      </span>
+                    </div>
+                  )}
 
                   {Number(order.discount_amount || 0) > 0 && (
                     <div className="flex justify-between text-neutral-600">

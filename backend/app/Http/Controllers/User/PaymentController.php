@@ -903,6 +903,7 @@ class PaymentController extends Controller
             'discount_amount' => $discountAmount,
             'voucher_code'    => $appliedVoucher?->code,
             'duration_days'   => $planData['duration_days'],
+            'bonus_days'      => $referrer ? (int) Setting::get('affiliate_referral_bonus_days', 3) : 0,
             'qr_url'          => $qrUrl,
             'qr_string'       => $qrString,
             'expires_at'      => $parsedExp->toISOString(),
@@ -938,6 +939,8 @@ class PaymentController extends Controller
             'discount_amount' => (int) ($order->discount_amount ?? 0),
             'voucher_code'    => $order->voucher_code,
             'duration_days'   => $order->duration_days ?? ($matchedPlan['duration_days'] ?? 30),
+            'bonus_days'      => $order->referred_by_id ? (int) Setting::get('affiliate_referral_bonus_days', 3) : 0,
+            'affiliate_code'  => $order->affiliate_code,
             'qr_url'          => $order->qr_url,
             'qr_string'       => $order->qr_string,
             'expires_at'      => $order->expires_at?->toISOString(),
@@ -1014,7 +1017,18 @@ class PaymentController extends Controller
 
             $now = now();
             $baseDate = ($user->expires_at && $user->expires_at->isFuture()) ? $user->expires_at : $now;
-            $newExpiry = $baseDate->copy()->addDays($lockedOrder->duration_days);
+
+            // Hitung total durasi hari (durasi paket + bonus referral jika menggunakan kode referral)
+            $totalDays = (int) $lockedOrder->duration_days;
+            $bonusDays = 0;
+            if ($lockedOrder->referred_by_id) {
+                $bonusDays = (int) Setting::get('affiliate_referral_bonus_days', 3);
+                if ($bonusDays > 0) {
+                    $totalDays += $bonusDays;
+                }
+            }
+
+            $newExpiry = $baseDate->copy()->addDays($totalDays);
 
             // Paymenku sends timestamp in WIB (Asia/Jakarta) without timezone offset.
             // Parse as Asia/Jakarta and convert to UTC to match Laravel application timestamps.
@@ -1122,6 +1136,7 @@ class PaymentController extends Controller
             'valid'         => true,
             'code'          => $affiliate->affiliate_code,
             'referrer_name' => $displayName,
+            'bonus_days'    => (int) Setting::get('affiliate_referral_bonus_days', 3),
         ]);
     }
 }

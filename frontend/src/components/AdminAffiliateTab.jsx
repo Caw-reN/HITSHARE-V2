@@ -948,6 +948,33 @@ export default function AdminAffiliateTab({ toast, showConfirm }) {
               </p>
             </div>
 
+            {/* Bonus Masa Aktif untuk Pembeli Referral (Hari) */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-neutral-700 uppercase tracking-wider flex items-center gap-1.5">
+                <span>Bonus Tambahan Masa Aktif untuk Pengguna Referral (Hari)</span>
+                <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  Benefit Pembeli
+                </span>
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  min={0}
+                  max={365}
+                  step={1}
+                  value={settings.affiliate_referral_bonus_days ?? 3}
+                  onChange={(e) => setSettings({ ...settings, affiliate_referral_bonus_days: parseInt(e.target.value, 10) || 0 })}
+                  className="w-full px-4 py-3 bg-[#FBFBF9] border border-[#DDDDCF] rounded-2xl text-sm font-bold text-neutral-900 focus:outline-none focus:border-neutral-900 focus:bg-white pr-16"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-neutral-400">
+                  Hari
+                </span>
+              </div>
+              <p className="text-[11px] text-neutral-400">
+                Jumlah hari tambahan masa aktif langganan gratis yang didapatkan pembeli baru saat mendaftar menggunakan kode referral afiliasi (misal: 3 hari, 7 hari). Isi 0 jika tidak ada bonus tambahan.
+              </p>
+            </div>
+
             <div className="pt-2">
               <button
                 type="submit"
