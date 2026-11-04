@@ -1,13 +1,11 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { motion, useScroll, useTransform, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import Navbar from '../components/Navbar';
 import api from '../api/client';
 import {
   ALL_TOOLS,
-  CALCULATOR_TOOLS,
   TESTIMONIALS,
-  ALL_FAQS,
 } from '../data/landingData';
 import {
   Zap,
@@ -33,9 +31,129 @@ import {
   HelpCircle,
   MousePointerClick,
   Laptop,
+  Download,
+  Pin,
+  MoreVertical,
+  Settings,
 } from 'lucide-react';
 
+function ChromePuzzleIcon({ className = 'w-4 h-4' }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M 8.25 5.5 a 1.75 1.75 0 0 1 3.5 0 H 14.5 a 1.5 1.5 0 0 1 1.5 1.5 v 2.5 a 1.75 1.75 0 0 1 0 3.5 v 2.5 a 1.5 1.5 0 0 1 -1.5 1.5 H 5.5 a 1.5 1.5 0 0 1 -1.5 -1.5 v -2.5 a 1.75 1.75 0 0 0 0 -3.5 V 7 a 1.5 1.5 0 0 1 1.5 -1.5 z" />
+    </svg>
+  );
+}
+
 const CURRENT_YEAR = new Date().getFullYear();
+
+const FALLBACK_PALETTES = [
+  'from-indigo-600 to-blue-700',
+  'from-emerald-500 to-teal-700',
+  'from-amber-500 to-orange-600',
+  'from-violet-600 to-purple-800',
+  'from-rose-500 to-pink-700',
+  'from-sky-500 to-cyan-700',
+  'from-neutral-800 to-black',
+];
+
+function ToolIcon({ app, size = 'sm' }) {
+  const [imgError, setImgError] = useState(false);
+  const isImage = Boolean(
+    app?.icon &&
+      !imgError &&
+      (app.icon.startsWith('http://') || app.icon.startsWith('https://') || app.icon.startsWith('/'))
+  );
+
+  const containerSizes = size === 'lg' ? 'w-14 h-14 text-base' : 'w-12 h-12 text-sm';
+  const imgSizes = size === 'lg' ? 'w-8 h-8' : 'w-7 h-7';
+
+  return (
+    <div
+      className={`${containerSizes} rounded-2xl bg-gradient-to-br ${app?.color || 'from-indigo-600 to-blue-700'} text-white flex items-center justify-center font-black shadow-sm group-hover:scale-105 transition-transform shrink-0 overflow-hidden p-1.5`}
+    >
+      {isImage ? (
+        <img
+          src={app.icon}
+          alt={app?.name || 'Icon'}
+          className={`${imgSizes} object-contain rounded-lg drop-shadow-xs`}
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        <span>{app?.iconLetter || app?.name?.slice(0, 2).toUpperCase() || 'HS'}</span>
+      )}
+    </div>
+  );
+}
+
+function formatDynamicTools(backendWebsites, catalogTools) {
+  if (!Array.isArray(backendWebsites) || backendWebsites.length === 0) {
+    return catalogTools;
+  }
+
+  return backendWebsites.map((w, idx) => {
+    const wNameClean = (w.name || '').toLowerCase().trim();
+    const match = catalogTools.find((t) => {
+      const tNameClean = t.name.toLowerCase().trim();
+      return (
+        wNameClean === tNameClean ||
+        wNameClean.includes(tNameClean) ||
+        tNameClean.includes(wNameClean)
+      );
+    });
+
+    const initials =
+      (w.name || '')
+        .split(' ')
+        .map((s) => s[0])
+        .join('')
+        .slice(0, 3)
+        .toUpperCase() || (w.name || 'HS').slice(0, 2).toUpperCase();
+
+    if (match) {
+      return {
+        ...match,
+        id: w.id || match.id,
+        name: w.name,
+        category: w.category || match.category,
+        category_id: w.category_id,
+        icon: w.icon || match.icon,
+        servers: w.servers || match.servers || 1,
+      };
+    }
+
+    return {
+      id: w.id || `web-${idx}`,
+      name: w.name,
+      category: w.category || 'Lainnya',
+      category_id: w.category_id,
+      sub: w.category ? `${w.category} Siap Pakai` : 'Akses Layanan Premium',
+      badge: 'Siap Pakai',
+      color: FALLBACK_PALETTES[idx % FALLBACK_PALETTES.length],
+      iconLetter: initials,
+      icon: w.icon || null,
+      servers: w.servers || 1,
+      features: [
+        `Akses akun ${w.name} siap pakai tanpa antri`,
+        'Akses login otomatis via Ekstensi HitShare',
+        'Server dipantau berkala & anti limit',
+        'Garansi sesi aktif selama masa langganan',
+      ],
+      officialPrice: 150000,
+    };
+  });
+}
+
+// Set ke true untuk mengaktifkan kembali section testimoni kapan saja
+const SHOW_TESTIMONIALS = false;
 
 export default function LandingPage() {
   const [settings, setSettings] = useState({});
@@ -45,33 +163,41 @@ export default function LandingPage() {
   // Koleksi Tools State
   const [selectedToolModal, setSelectedToolModal] = useState(null);
   const [activeToolCategory, setActiveToolCategory] = useState('Semua');
-
-  // Savings Calculator State
-  const [selectedCalcTools, setSelectedCalcTools] = useState(
-    new Set(CALCULATOR_TOOLS.filter((t) => t.defaultChecked).map((t) => t.id))
-  );
+  const [tools, setTools] = useState(ALL_TOOLS);
+  const [categories, setCategories] = useState(['Semua', 'AI Tools', 'Desain', 'Streaming', 'Produktivitas']);
 
   // Testimonial Carousel State
   const [activeTestimonial, setActiveTestimonial] = useState(0);
   const [isTestimonialHovered, setIsTestimonialHovered] = useState(false);
 
-  // FAQ State
-  const [openFaq, setOpenFaq] = useState(0);
-  const [faqSearch, setFaqSearch] = useState('');
-  const [activeFaqCategory, setActiveFaqCategory] = useState('all');
-
-  // Motion.dev Footer Reveal (https://motion.dev/examples/react-footer-reveal)
-  const footerContainerRef = useRef(null);
-  const { scrollYProgress } = useScroll({
-    target: footerContainerRef,
-    offset: ['start end', 'end end'],
-  });
-  const footerOpacity = useTransform(scrollYProgress, [0, 0.4, 1], [0, 0.5, 1]);
-  const footerY = useTransform(scrollYProgress, [0, 1], [-60, 0]);
-
   useEffect(() => {
     // Fetch public settings
     api.get('/settings/public').then((res) => setSettings(res.data)).catch(() => {});
+
+    // Fetch dynamic websites
+    api
+      .get('/websites/public')
+      .then((res) => {
+        const data = res.data;
+        const list = Array.isArray(data) ? data : data?.websites;
+        if (Array.isArray(list) && list.length > 0) {
+          const formatted = formatDynamicTools(list, ALL_TOOLS);
+          setTools(formatted);
+
+          const cats = ['Semua'];
+          const backendCats = Array.isArray(data?.categories) ? data.categories : [];
+          backendCats.forEach((c) => {
+            if (c && !cats.includes(c)) cats.push(c);
+          });
+          formatted.forEach((t) => {
+            if (t.category && !cats.includes(t.category)) cats.push(t.category);
+          });
+          setCategories(cats);
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to load dynamic websites, falling back to static catalog:', err);
+      });
 
     // Fetch dynamic payment plans
     api
@@ -98,61 +224,43 @@ export default function LandingPage() {
       .finally(() => setPlansLoading(false));
   }, []);
 
-  // Auto-slide testimonials carousel every 5s unless hovered
+  // Auto-slide testimonials carousel every 5s unless hovered (hanya berjalan saat testimoni aktif)
   useEffect(() => {
-    if (isTestimonialHovered) return;
+    if (!SHOW_TESTIMONIALS || isTestimonialHovered) return;
     const interval = setInterval(() => {
       setActiveTestimonial((prev) => (prev + 1) % TESTIMONIALS.length);
     }, 5000);
     return () => clearInterval(interval);
   }, [isTestimonialHovered]);
 
-  // Calculator Calculations
-  const calculatedSavings = useMemo(() => {
-    const totalRetail = CALCULATOR_TOOLS.filter((t) => selectedCalcTools.has(t.id)).reduce(
-      (sum, t) => sum + t.price,
-      0
-    );
-    const hitsharePrice = 25000;
-    const monthlySavings = Math.max(0, totalRetail - hitsharePrice);
-    const percentSavings = totalRetail > 0 ? Math.round((monthlySavings / totalRetail) * 100) : 0;
-    const yearlySavings = monthlySavings * 12;
-
-    return { totalRetail, hitsharePrice, monthlySavings, percentSavings, yearlySavings };
-  }, [selectedCalcTools]);
-
-  const toggleCalculatorTool = (toolId) => {
-    setSelectedCalcTools((prev) => {
-      const next = new Set(prev);
-      if (next.has(toolId)) {
-        next.delete(toolId);
-      } else {
-        next.add(toolId);
-      }
-      return next;
-    });
-  };
-
-  // Filtered FAQs
-  const filteredFaqs = useMemo(() => {
-    return ALL_FAQS.filter((f) => {
-      const matchesCategory = activeFaqCategory === 'all' || f.category === activeFaqCategory;
-      const matchesSearch =
-        !faqSearch.trim() ||
-        f.q.toLowerCase().includes(faqSearch.toLowerCase()) ||
-        f.a.toLowerCase().includes(faqSearch.toLowerCase());
-      return matchesCategory && matchesSearch;
-    });
-  }, [activeFaqCategory, faqSearch]);
-
   // Filtered tools for Category
   const filteredTools = useMemo(() => {
-    if (activeToolCategory === 'Semua') return ALL_TOOLS;
-    return ALL_TOOLS.filter((t) => t.category === activeToolCategory);
-  }, [activeToolCategory]);
+    if (activeToolCategory === 'Semua') return tools;
+    return tools.filter((t) => t.category === activeToolCategory);
+  }, [activeToolCategory, tools]);
 
-  const marqueeRow1 = ALL_TOOLS.slice(0, 10);
-  const marqueeRow2 = ALL_TOOLS.slice(10);
+  const { marqueeRow1, marqueeRow2 } = useMemo(() => {
+    if (!tools || tools.length === 0) {
+      return { marqueeRow1: [], marqueeRow2: [] };
+    }
+    const mid = Math.ceil(tools.length / 2);
+    const row1 = tools.slice(0, mid);
+    const row2 = tools.slice(mid);
+
+    const makeSeamless = (arr) => {
+      if (!arr || arr.length === 0) return [];
+      let base = [...arr];
+      while (base.length < 6) {
+        base = base.concat(arr);
+      }
+      return base.concat(base);
+    };
+
+    return {
+      marqueeRow1: makeSeamless(row1),
+      marqueeRow2: makeSeamless(row2.length > 0 ? row2 : row1),
+    };
+  }, [tools]);
 
   const waNumber = settings.whatsapp_number || '6281234567890';
   const waMsg = encodeURIComponent(settings.contact_message || 'Halo Admin HitShare, saya mau tanya-tanya.');
@@ -259,119 +367,6 @@ export default function LandingPage() {
             Aktivasi instan via QRIS 24/7 otomatis • Mulai dari Rp 29.000
           </p>
 
-          {/* ── Product Centerpiece Mockup (The HitShare Extension Experience) ── */}
-          <div className="pt-8 sm:pt-12 max-w-4xl mx-auto relative">
-            {/* Floating Chip Kiri (Desktop) */}
-            <div className="hidden lg:flex items-center gap-2.5 px-4 py-2.5 bg-white/95 backdrop-blur-md rounded-2xl border border-[#E0E0D6] shadow-lg absolute -left-8 top-1/3 z-20 animate-in fade-in slide-in-from-left duration-500">
-              <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs">
-                ⚡
-              </div>
-              <div className="text-left">
-                <div className="text-xs font-bold text-neutral-900">1-Klik Akses Otomatis</div>
-                <div className="text-[10px] text-neutral-500">Tanpa ketik password manual</div>
-              </div>
-            </div>
-
-            {/* Floating Chip Kanan (Desktop) */}
-            <div className="hidden lg:flex items-center gap-2.5 px-4 py-2.5 bg-white/95 backdrop-blur-md rounded-2xl border border-[#E0E0D6] shadow-lg absolute -right-8 top-1/2 z-20 animate-in fade-in slide-in-from-right duration-500">
-              <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-xs">
-                💎
-              </div>
-              <div className="text-left">
-                <div className="text-xs font-bold text-neutral-900">Hemat Hingga 90%</div>
-                <div className="text-[10px] text-neutral-500">Dibanding beli akun mandiri</div>
-              </div>
-            </div>
-
-            {/* Browser / Extension Window Frame */}
-            <div className="bg-white rounded-3xl border border-[#E2E2D8] shadow-2xl overflow-hidden text-left relative z-10">
-              {/* Window Header */}
-              <div className="px-4 py-3 bg-[#F4F4EE] border-b border-[#E5E5DB] flex items-center justify-between gap-3 text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-3 h-3 rounded-full bg-[#FF5F56] border border-[#E0443E]/40 inline-block"></span>
-                    <span className="w-3 h-3 rounded-full bg-[#FFBD2E] border border-[#DEA123]/40 inline-block"></span>
-                    <span className="w-3 h-3 rounded-full bg-[#27C93F] border border-[#1AAB29]/40 inline-block"></span>
-                  </div>
-                  <span className="font-mono text-[11px] text-neutral-500 ml-2 hidden sm:inline">
-                    hitshare://extension/v2.0.5
-                  </span>
-                </div>
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100/80 text-emerald-800 border border-emerald-200">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span>Ekstensi Aktif • Sesi Terverifikasi</span>
-                </div>
-              </div>
-
-              {/* Extension UI Inside Mockup */}
-              <div className="p-5 sm:p-7 bg-[#FAF9F5] space-y-5">
-                {/* User Bar Simulation */}
-                <div className="flex items-center justify-between pb-4 border-b border-[#EAEAE0]">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-neutral-900 text-white flex items-center justify-center font-black text-sm shadow-sm">
-                      H
-                    </div>
-                    <div>
-                      <div className="text-sm font-bold text-neutral-900">HitShare Extension Portal</div>
-                      <div className="text-xs text-neutral-500">25+ Akun Siap Digunakan Sekali Klik</div>
-                    </div>
-                  </div>
-                  <span className="hidden sm:inline-flex items-center gap-1 text-xs font-bold text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-200/80">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    Member Pro
-                  </span>
-                </div>
-
-                {/* 6 Grid App Cards */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                  {[
-                    { name: 'Netflix', sub: 'Ultra HD 4K', color: 'from-rose-500 to-red-600', letter: 'N' },
-                    { name: 'ChatGPT Plus', sub: 'GPT-4o & AI', color: 'from-emerald-500 to-teal-600', letter: 'AI' },
-                    { name: 'Canva Pro', sub: 'Brand Kit', color: 'from-sky-500 to-blue-600', letter: 'C' },
-                    { name: 'Midjourney', sub: 'v6 Fast Gen', color: 'from-violet-500 to-purple-600', letter: 'MJ' },
-                    { name: 'Prime Video', sub: 'Film & Serial', color: 'from-indigo-500 to-blue-700', letter: 'PV' },
-                    { name: 'Spotify Pro', sub: 'Bebas Iklan', color: 'from-emerald-600 to-green-700', letter: 'SP' },
-                  ].map((app, idx) => (
-                    <div
-                      key={idx}
-                      className="p-3 bg-white rounded-2xl border border-[#EAEAE2] shadow-2xs hover:shadow-md hover:border-neutral-400 hover:-translate-y-1 transition-all text-center flex flex-col items-center justify-center gap-2 group cursor-pointer"
-                    >
-                      <div className={`w-11 h-11 rounded-2xl bg-gradient-to-br ${app.color} text-white flex items-center justify-center font-black text-xs shadow-sm group-hover:scale-105 transition-transform`}>
-                        {app.letter}
-                      </div>
-                      <div className="min-w-0 w-full">
-                        <div className="text-xs font-bold text-neutral-900 truncate">{app.name}</div>
-                        <div className="text-[10px] text-neutral-500 truncate">{app.sub}</div>
-                      </div>
-                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-md">
-                        Siap Pakai
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Highlights / Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 max-w-4xl mx-auto pt-4">
-            <div className="p-4 sm:p-5 bg-white/80 border border-[#EAEAE3] rounded-3xl text-center shadow-bone backdrop-blur-xs hover:border-neutral-300 transition-colors">
-              <div className="font-display text-2xl sm:text-3xl font-black text-neutral-900">1-Klik</div>
-              <div className="text-xs text-neutral-500 font-medium mt-1">Login Instan Otomatis</div>
-            </div>
-            <div className="p-4 sm:p-5 bg-white/80 border border-[#EAEAE3] rounded-3xl text-center shadow-bone backdrop-blur-xs hover:border-neutral-300 transition-colors">
-              <div className="font-display text-2xl sm:text-3xl font-black text-neutral-900">25+</div>
-              <div className="text-xs text-neutral-500 font-medium mt-1">Pilihan Tools Premium</div>
-            </div>
-            <div className="p-4 sm:p-5 bg-white/80 border border-[#EAEAE3] rounded-3xl text-center shadow-bone backdrop-blur-xs hover:border-neutral-300 transition-colors">
-              <div className="font-display text-2xl sm:text-3xl font-black text-neutral-900">99.8%</div>
-              <div className="text-xs text-neutral-500 font-medium mt-1">Uptime Sesi Fresh</div>
-            </div>
-            <div className="p-4 sm:p-5 bg-white/80 border border-[#EAEAE3] rounded-3xl text-center shadow-bone backdrop-blur-xs hover:border-neutral-300 transition-colors">
-              <div className="font-display text-2xl sm:text-3xl font-black text-neutral-900">QRIS</div>
-              <div className="text-xs text-neutral-500 font-medium mt-1">Aktivasi Otomatis 24/7</div>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -381,11 +376,13 @@ export default function LandingPage() {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[350px] bg-amber-200/20 blur-[120px] pointer-events-none rounded-full" />
 
         <div className="max-w-6xl mx-auto space-y-8 relative z-10">
-          <div className="text-center space-y-3">
-            <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-white text-neutral-800 border border-[#DDDDCF] shadow-2xs">
-              <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-              Koleksi 25+ Layanan Premium
-            </span>
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-60px' }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
+            className="text-center space-y-3"
+          >
             <h2 className="text-3xl sm:text-4xl font-extrabold text-neutral-900 tracking-tight">
               Website &amp; Akun Siap Pakai
             </h2>
@@ -394,8 +391,14 @@ export default function LandingPage() {
             </p>
 
             {/* Category Filter Pills */}
-            <div className="flex flex-wrap items-center justify-center gap-2 pt-3">
-              {['Semua', 'AI Tools', 'Desain', 'Streaming', 'Produktivitas'].map((cat) => (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-40px' }}
+              transition={{ duration: 0.5, delay: 0.1, ease: 'easeOut' }}
+              className="flex flex-wrap items-center justify-center gap-2 pt-3"
+            >
+              {categories.map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setActiveToolCategory(cat)}
@@ -408,26 +411,30 @@ export default function LandingPage() {
                   {cat}
                 </button>
               ))}
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
 
           {/* Marquee Container or Filtered Grid */}
           {activeToolCategory === 'Semua' ? (
-            <div className="space-y-4 pt-4">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-60px' }}
+              transition={{ duration: 0.65, delay: 0.15, ease: 'easeOut' }}
+              className="space-y-4 pt-4"
+            >
               {/* Row 1: Scrolling Left */}
               <div className="overflow-hidden w-full relative">
                 <div className="absolute left-0 top-0 bottom-0 w-16 sm:w-28 bg-gradient-to-r from-[#F2F2EC] to-transparent z-10 pointer-events-none" />
                 <div className="absolute right-0 top-0 bottom-0 w-16 sm:w-28 bg-gradient-to-l from-[#F2F2EC] to-transparent z-10 pointer-events-none" />
                 <div className="animate-marquee-left flex gap-4 py-1">
-                  {marqueeRow1.concat(marqueeRow1).map((app, idx) => (
+                  {marqueeRow1.map((app, idx) => (
                     <button
                       key={`r1-${idx}`}
                       onClick={() => setSelectedToolModal(app)}
                       className="group bg-white p-4 rounded-3xl border border-[#E5E5DC] shadow-bone hover:border-neutral-900 hover:shadow-bone-lg hover:-translate-y-1 transition-all text-left flex items-center gap-3.5 w-64 sm:w-72 shrink-0 cursor-pointer"
                     >
-                      <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${app.color} text-white flex items-center justify-center font-black text-sm shadow-sm group-hover:scale-105 transition-transform shrink-0`}>
-                        {app.iconLetter}
-                      </div>
+                      <ToolIcon app={app} size="sm" />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
                           <h3 className="text-sm font-bold text-neutral-900 truncate">{app.name}</h3>
@@ -451,15 +458,13 @@ export default function LandingPage() {
                 <div className="absolute left-0 top-0 bottom-0 w-16 sm:w-28 bg-gradient-to-r from-[#F2F2EC] to-transparent z-10 pointer-events-none" />
                 <div className="absolute right-0 top-0 bottom-0 w-16 sm:w-28 bg-gradient-to-l from-[#F2F2EC] to-transparent z-10 pointer-events-none" />
                 <div className="animate-marquee-right flex gap-4 py-1">
-                  {marqueeRow2.concat(marqueeRow2).map((app, idx) => (
+                  {marqueeRow2.map((app, idx) => (
                     <button
                       key={`r2-${idx}`}
                       onClick={() => setSelectedToolModal(app)}
                       className="group bg-white p-4 rounded-3xl border border-[#E5E5DC] shadow-bone hover:border-neutral-900 hover:shadow-bone-lg hover:-translate-y-1 transition-all text-left flex items-center gap-3.5 w-64 sm:w-72 shrink-0 cursor-pointer"
                     >
-                      <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${app.color} text-white flex items-center justify-center font-black text-sm shadow-sm group-hover:scale-105 transition-transform shrink-0`}>
-                        {app.iconLetter}
-                      </div>
+                      <ToolIcon app={app} size="sm" />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
                           <h3 className="text-sm font-bold text-neutral-900 truncate">{app.name}</h3>
@@ -477,19 +482,20 @@ export default function LandingPage() {
                   ))}
                 </div>
               </div>
-            </div>
+            </motion.div>
           ) : (
             /* Filtered Category Grid */
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
-              {filteredTools.map((app) => (
-                <button
+              {filteredTools.map((app, idx) => (
+                <motion.button
                   key={app.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, delay: idx * 0.04 }}
                   onClick={() => setSelectedToolModal(app)}
                   className="group bg-white p-5 rounded-3xl border border-[#E5E5DC] shadow-bone hover:border-neutral-900 hover:shadow-bone-lg hover:-translate-y-1 transition-all text-left flex items-center gap-4 cursor-pointer"
                 >
-                  <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${app.color} text-white flex items-center justify-center font-black text-base shadow-sm group-hover:scale-105 transition-transform shrink-0`}>
-                    {app.iconLetter}
-                  </div>
+                  <ToolIcon app={app} size="lg" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <h3 className="text-sm font-bold text-neutral-900 truncate">{app.name}</h3>
@@ -508,16 +514,10 @@ export default function LandingPage() {
                       </span>
                     </div>
                   </div>
-                </button>
+                </motion.button>
               ))}
             </div>
           )}
-
-          <div className="text-center pt-2">
-            <p className="text-xs text-neutral-500">
-              💡 <em>Tips:</em> Arahkan kursor pada kartu logo untuk menghentikan putaran animasi, atau klik kartu untuk informasi lengkap.
-            </p>
-          </div>
         </div>
       </section>
 
@@ -544,9 +544,7 @@ export default function LandingPage() {
               {/* Header */}
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${selectedToolModal.color} text-white flex items-center justify-center font-black text-lg shadow-sm shrink-0`}>
-                    {selectedToolModal.iconLetter}
-                  </div>
+                  <ToolIcon app={selectedToolModal} size="lg" />
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="text-xl font-bold text-neutral-900">{selectedToolModal.name}</h3>
@@ -589,7 +587,7 @@ export default function LandingPage() {
                   Fitur Akses Yang Termasuk
                 </h4>
                 <ul className="space-y-2 text-xs text-neutral-700">
-                  {selectedToolModal.features.map((feat, i) => (
+                  {(selectedToolModal.features || []).map((feat, i) => (
                     <li key={i} className="flex items-start gap-2.5">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                       <span>{feat}</span>
@@ -597,7 +595,7 @@ export default function LandingPage() {
                   ))}
                   <li className="flex items-start gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                    <span>Injeksi cookie otomatis via Ekstensi HitShare (Chrome, Edge, Brave)</span>
+                    <span>Akses login otomatis via Ekstensi HitShare (Chrome, Edge, Brave)</span>
                   </li>
                 </ul>
               </div>
@@ -609,7 +607,7 @@ export default function LandingPage() {
                     Harga Resmi Langganan
                   </div>
                   <div className="text-xs text-neutral-400 line-through">
-                    Rp {new Intl.NumberFormat('id-ID').format(selectedToolModal.officialPrice)} / bln
+                    Rp {new Intl.NumberFormat('id-ID').format(selectedToolModal.officialPrice || 150000)} / bln
                   </div>
                 </div>
                 <div className="text-right">
@@ -647,466 +645,358 @@ export default function LandingPage() {
       {/* ── 2. Cara Kerja 3-Langkah (How It Works) ── */}
       <section id="cara-kerja" className="py-24 px-4 bg-[#F8F8F5] relative">
         <div className="max-w-6xl mx-auto space-y-14">
-          <div className="text-center space-y-3">
-            <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-white text-neutral-800 border border-[#DDDDCF] shadow-2xs">
-              <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-              Mudah, Cepat &amp; Instan
-            </span>
+          <motion.div
+            initial={{ opacity: 0, y: 25 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-60px' }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
+            className="text-center space-y-3"
+          >
             <h2 className="text-3xl sm:text-4xl font-extrabold text-neutral-900 tracking-tight">
               3 Langkah Sederhana Menggunakan HitShare
             </h2>
             <p className="text-sm sm:text-base text-neutral-600 max-w-xl mx-auto">
               Tidak perlu mengunduh aplikasi mencurigakan atau mengetik username dan password manual satu per satu.
             </p>
-          </div>
+          </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-6 relative">
+          <div className="space-y-10 sm:space-y-12">
             {/* Step 1 */}
-            <div className="bg-white rounded-3xl p-6 sm:p-7 border border-[#E8E8DF] shadow-bone hover:border-neutral-400 hover:shadow-bone-lg transition-all flex flex-col justify-between space-y-6 group">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="w-10 h-10 rounded-2xl bg-neutral-900 text-white font-display font-black text-sm flex items-center justify-center shadow-sm">
-                    01
-                  </span>
-                  <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider">
-                    Langkah Awal
-                  </span>
-                </div>
-                <h3 className="text-lg font-bold text-neutral-900 group-hover:text-amber-600 transition-colors">
-                  Daftar &amp; Pasang Ekstensi
-                </h3>
-                <p className="text-xs sm:text-sm text-neutral-600 leading-relaxed">
-                  Pilih paket langganan dan unduh ekstensi resmi HitShare. Pasang di browser Chrome, Edge, atau Brave kamu hanya dalam 1 menit.
-                </p>
-              </div>
-
-              {/* Visual Mockup Step 1 */}
-              <div className="p-4 bg-[#FAF9F5] rounded-2xl border border-[#EAEAE0] space-y-3">
-                <div className="flex items-center justify-between text-xs pb-2 border-b border-[#E5E5DC]">
-                  <div className="flex items-center gap-1.5">
-                    <Laptop className="w-3.5 h-3.5 text-neutral-500" />
-                    <span className="font-mono text-[11px] text-neutral-600">Browser Toolbar</span>
+            <motion.div
+              initial={{ opacity: 0, y: 35 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-80px' }}
+              transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+              className="bg-white rounded-4xl p-6 sm:p-10 lg:p-12 border border-[#E5E5DC] shadow-bone hover:border-neutral-400 hover:shadow-bone-lg transition-all"
+            >
+              <div className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+                {/* Text Col */}
+                <div className="lg:col-span-5 space-y-5">
+                  <div className="flex items-center gap-3">
+                    <span className="w-12 h-12 rounded-2xl bg-neutral-900 text-white font-display font-black text-base flex items-center justify-center shadow-sm">
+                      01
+                    </span>
                   </div>
-                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full">
-                    Terpasang
-                  </span>
+                  <h3 className="text-2xl sm:text-3xl font-extrabold text-neutral-900 leading-tight">
+                    Daftar &amp; Pasang Ekstensi
+                  </h3>
+                  <p className="text-sm sm:text-base text-neutral-600 leading-relaxed">
+                    Pilih paket langganan sesuai kebutuhan Anda dan pasang ekstensi resmi HitShare ke browser dalam hitungan detik. Cukup satu kali klik, ekstensi langsung aktif dan siap digunakan.
+                  </p>
+                  <ul className="space-y-2.5 pt-2 text-xs sm:text-sm text-neutral-700">
+                    <li className="flex items-center gap-2.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Pemasangan 1-klik praktis untuk Chrome, Edge, Brave, dan Opera</span>
+                    </li>
+                    <li className="flex items-center gap-2.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Ekstensi resmi berstandar aman tanpa instal aplikasi tambahan</span>
+                    </li>
+                    <li className="flex items-center gap-2.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Langsung terhubung dengan akun langganan Anda secara instan</span>
+                    </li>
+                  </ul>
                 </div>
-                <div className="flex items-center gap-2.5 p-2 bg-white rounded-xl border border-[#E8E8DE]">
-                  <div className="w-7 h-7 rounded-lg bg-neutral-900 text-white flex items-center justify-center font-black text-xs">
-                    H
-                  </div>
-                  <div className="text-[11px] font-bold text-neutral-900">HitShare Extension v2.0.5</div>
-                  <Check className="w-4 h-4 text-emerald-600 ml-auto" />
-                </div>
-              </div>
-            </div>
 
-            {/* Step 2 */}
-            <div className="bg-white rounded-3xl p-6 sm:p-7 border border-[#E8E8DF] shadow-bone hover:border-neutral-400 hover:shadow-bone-lg transition-all flex flex-col justify-between space-y-6 group">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="w-10 h-10 rounded-2xl bg-neutral-900 text-white font-display font-black text-sm flex items-center justify-center shadow-sm">
-                    02
-                  </span>
-                  <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider">
-                    Pilih Layanan
-                  </span>
-                </div>
-                <h3 className="text-lg font-bold text-neutral-900 group-hover:text-amber-600 transition-colors">
-                  Buka Ekstensi &amp; Pilih Tools
-                </h3>
-                <p className="text-xs sm:text-sm text-neutral-600 leading-relaxed">
-                  Buka ikon HitShare di pojok kanan atas browser kamu. Telusuri lebih dari 25+ koleksi akun premium seperti Netflix, ChatGPT Plus, Canva Pro, dan lainnya.
-                </p>
-              </div>
+                {/* Visual Col */}
+                <div className="lg:col-span-7 flex justify-center">
+                  <div className="w-full max-w-xl bg-white p-6 sm:p-7 rounded-3xl border border-[#E5E5DC] shadow-xl hover:shadow-2xl transition-all space-y-4 relative overflow-hidden">
+                    {/* Ambient subtle accent glow */}
+                    <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
 
-              {/* Visual Mockup Step 2 */}
-              <div className="p-4 bg-[#FAF9F5] rounded-2xl border border-[#EAEAE0] space-y-3">
-                <div className="flex items-center justify-between text-xs pb-2 border-b border-[#E5E5DC]">
-                  <span className="font-semibold text-neutral-700 text-[11px]">Koleksi Siap Pakai</span>
-                  <span className="text-[10px] text-neutral-500">25+ Pilihan</span>
-                </div>
-                <div className="grid grid-cols-3 gap-1.5 text-center">
-                  <div className="p-2 bg-white rounded-xl border border-[#E8E8DE]">
-                    <div className="text-[10px] font-bold text-neutral-900">ChatGPT</div>
-                    <span className="text-[9px] text-emerald-600 font-semibold">Siap</span>
-                  </div>
-                  <div className="p-2 bg-white rounded-xl border border-[#E8E8DE]">
-                    <div className="text-[10px] font-bold text-neutral-900">Netflix</div>
-                    <span className="text-[9px] text-emerald-600 font-semibold">Siap</span>
-                  </div>
-                  <div className="p-2 bg-white rounded-xl border border-[#E8E8DE]">
-                    <div className="text-[10px] font-bold text-neutral-900">Canva</div>
-                    <span className="text-[9px] text-emerald-600 font-semibold">Siap</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Step 3 */}
-            <div className="bg-white rounded-3xl p-6 sm:p-7 border border-[#E8E8DF] shadow-bone hover:border-neutral-400 hover:shadow-bone-lg transition-all flex flex-col justify-between space-y-6 group">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="w-10 h-10 rounded-2xl bg-neutral-900 text-white font-display font-black text-sm flex items-center justify-center shadow-sm">
-                    03
-                  </span>
-                  <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">
-                    Selesai
-                  </span>
-                </div>
-                <h3 className="text-lg font-bold text-neutral-900 group-hover:text-amber-600 transition-colors">
-                  1-Klik Langsung Login Otomatis
-                </h3>
-                <p className="text-xs sm:text-sm text-neutral-600 leading-relaxed">
-                  Cukup klik tombol &quot;Buka Website&quot;. Ekstensi secara instan menyuntikkan sesi cookie terenkripsi. Tab baru terbuka dan Anda langsung masuk tanpa password!
-                </p>
-              </div>
-
-              {/* Visual Mockup Step 3 */}
-              <div className="p-4 bg-[#FAF9F5] rounded-2xl border border-[#EAEAE0] space-y-2.5">
-                <div className="w-full py-2 px-3 bg-neutral-900 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm">
-                  <MousePointerClick className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Buka Website (1-Klik)</span>
-                </div>
-                <div className="p-2 bg-emerald-50 rounded-xl border border-emerald-200/80 text-[11px] font-semibold text-emerald-800 flex items-center justify-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Sesi Disinkronkan • Logged In</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── 3. Kalkulator Interaktif Hemat Biaya ── */}
-      <section id="hemat" className="py-24 px-4 bg-[#F2F2EC] border-t border-[#E5E5DC] relative">
-        <div className="max-w-6xl mx-auto space-y-12">
-          <div className="text-center space-y-3">
-            <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-white text-neutral-800 border border-[#DDDDCF] shadow-2xs">
-              <Calculator className="w-3.5 h-3.5 text-amber-600" />
-              Kalkulator Penghematan Real-Time
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-neutral-900 tracking-tight">
-              Hitung Berapa Banyak Uang yang Anda Hemat
-            </h2>
-            <p className="text-sm sm:text-base text-neutral-600 max-w-xl mx-auto">
-              Centang tools yang sering Anda gunakan di bawah ini dan bandingkan pengeluaran resmi bulanan dengan biaya langganan all-in-one di HitShare.
-            </p>
-          </div>
-
-          <div className="grid lg:grid-cols-12 gap-8 items-start">
-            {/* Left: Tool Checkbox Selector */}
-            <div className="lg:col-span-7 bg-white rounded-3xl p-6 sm:p-7 border border-[#E5E5DC] shadow-bone space-y-5">
-              <div className="flex items-center justify-between pb-3 border-b border-[#EFEFE8]">
-                <h3 className="text-sm font-bold text-neutral-900">
-                  Pilih Layanan yang Anda Pakai ({selectedCalcTools.size} dipilih)
-                </h3>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setSelectedCalcTools(new Set(CALCULATOR_TOOLS.map((t) => t.id)))}
-                    className="text-[11px] font-bold text-neutral-700 hover:text-neutral-900 hover:underline cursor-pointer"
-                  >
-                    Pilih Semua
-                  </button>
-                  <span className="text-neutral-300">•</span>
-                  <button
-                    onClick={() => setSelectedCalcTools(new Set())}
-                    className="text-[11px] font-bold text-neutral-500 hover:text-neutral-800 hover:underline cursor-pointer"
-                  >
-                    Reset
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid sm:grid-cols-2 gap-2.5">
-                {CALCULATOR_TOOLS.map((tool) => {
-                  const isChecked = selectedCalcTools.has(tool.id);
-                  return (
-                    <button
-                      key={tool.id}
-                      onClick={() => toggleCalculatorTool(tool.id)}
-                      className={`p-3.5 rounded-2xl border text-left transition-all flex items-center justify-between gap-3 cursor-pointer ${
-                        isChecked
-                          ? 'bg-[#F9F9F6] border-neutral-900 shadow-2xs'
-                          : 'bg-white border-[#EAEAE0] hover:border-neutral-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className={`w-5 h-5 rounded-lg flex items-center justify-center transition-colors ${
-                          isChecked ? 'bg-neutral-900 text-white' : 'border border-[#D0D0C5]'
-                        }`}>
-                          {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
+                    {/* Top Row: Icon + Title (Left) and Add to Browser Button (Right) */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        <div className="relative shrink-0">
+                          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white border border-[#E0E0D8] p-2 flex items-center justify-center shadow-md overflow-hidden">
+                            <img src="/icon.png" alt="HitShare Extension" className="w-full h-full object-contain" />
+                          </div>
                         </div>
                         <div className="min-w-0">
-                          <div className="text-xs font-bold text-neutral-900 truncate">{tool.name}</div>
-                          <div className="text-[10px] text-neutral-500">{tool.category}</div>
+                          <div className="flex flex-wrap items-baseline gap-2">
+                            <h4 className="text-lg sm:text-xl font-extrabold text-neutral-900 tracking-tight">
+                              HitShare Extension
+                            </h4>
+                            <span className="text-xs font-semibold text-neutral-400">
+                              v2.0.5
+                            </span>
+                          </div>
+                          <p className="text-xs sm:text-sm text-neutral-500 mt-0.5 leading-snug">
+                            Akses puluhan akun premium instan langsung dari browser
+                          </p>
                         </div>
                       </div>
-                      <div className="text-right shrink-0">
-                        <div className="text-xs font-bold text-neutral-800">
-                          Rp {new Intl.NumberFormat('id-ID').format(tool.price)}
-                        </div>
-                        <div className="text-[9px] text-neutral-400">/ bulan</div>
+
+                      {/* Add to Browser Button (like Chrome Web Store reference) */}
+                      <div className="shrink-0 self-start sm:self-center">
+                        <button
+                          type="button"
+                          className="inline-flex items-center justify-center px-5 py-2.5 rounded-full bg-[#0B57D0] hover:bg-[#0842A0] text-white text-xs sm:text-sm font-semibold shadow-sm hover:shadow-md transition-all active:scale-95 cursor-default"
+                        >
+                          Add to Browser
+                        </button>
                       </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+                    </div>
 
-            {/* Right: Savings Summary Card */}
-            <div className="lg:col-span-5 bg-neutral-900 text-white rounded-3xl p-7 sm:p-8 border-2 border-neutral-900 shadow-bone-lg space-y-6 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+                    {/* Metadata & Rating Row */}
+                    <div className="flex flex-wrap items-center gap-3 pt-3 text-xs text-neutral-500 border-t border-[#F0F0E8]">
+                      <div className="flex items-center gap-1 text-blue-600 font-medium text-xs">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
+                        <span>hitshare.web.id</span>
+                      </div>
+                      <span className="text-neutral-300">•</span>
+                      <div className="flex items-center gap-1 text-amber-500">
+                        <span className="font-bold text-neutral-900">5.0</span>
+                        <div className="flex text-amber-400 text-xs">
+                          {'★'.repeat(5)}
+                        </div>
+                        <span className="text-neutral-400 text-[11px]">(1.200+ rating)</span>
+                      </div>
+                      <span className="text-neutral-300">•</span>
+                      <span className="text-neutral-500 text-[11px]">Produktivitas</span>
+                    </div>
 
-              <div className="space-y-1 relative z-10">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-                  <Flame className="w-3.5 h-3.5 fill-current" />
-                  Hasil Kalkulasi Penghematan
-                </span>
-                <h3 className="text-xl font-bold text-white">Ringkasan Biaya Bulanan</h3>
-              </div>
-
-              {/* Price Breakdown */}
-              <div className="space-y-4 pt-2 relative z-10 border-t border-neutral-800">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-neutral-400">Total Beli Sendiri (Resmi):</span>
-                  <span className="line-through text-neutral-400 font-medium">
-                    Rp {new Intl.NumberFormat('id-ID').format(calculatedSavings.totalRetail)}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-neutral-300 font-semibold">Biaya HitShare (All-In-One):</span>
-                  <span className="text-emerald-400 font-bold">
-                    Hanya Rp {new Intl.NumberFormat('id-ID').format(calculatedSavings.hitsharePrice)} / bln
-                  </span>
-                </div>
-
-                {/* Big Highlight Box */}
-                <div className="p-4 rounded-2xl bg-neutral-800/90 border border-neutral-700/80 space-y-2">
-                  <div className="text-xs text-neutral-400 font-medium">Anda Berhemat Setiap Bulan:</div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-2xl sm:text-3xl font-black text-amber-400">
-                      Rp {new Intl.NumberFormat('id-ID').format(calculatedSavings.monthlySavings)}
-                    </span>
-                    <span className="text-xs font-bold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-800/60">
-                      Hemat {calculatedSavings.percentSavings}%
-                    </span>
-                  </div>
-
-                  {/* Visual Progress Bar */}
-                  <div className="w-full bg-neutral-950 h-2.5 rounded-full overflow-hidden mt-3">
-                    <div
-                      className="bg-gradient-to-r from-amber-400 to-emerald-400 h-full rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(100, Math.max(10, calculatedSavings.percentSavings))}%` }}
-                    />
+                    {/* Supported Browsers Footer */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px] text-neutral-500 border-t border-[#F0F0E8]">
+                      <span>Kompatibel dengan:</span>
+                      <div className="flex items-center gap-1.5 font-medium text-neutral-700">
+                        <span className="px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-800 font-semibold text-[10px]">Chrome</span>
+                        <span className="px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-800 font-semibold text-[10px]">Edge</span>
+                        <span className="px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-800 font-semibold text-[10px]">Brave</span>
+                        <span className="px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-800 font-semibold text-[10px]">Opera</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-
-                <div className="p-3 bg-neutral-950/50 rounded-xl text-center text-xs text-neutral-300">
-                  💰 Dalam 1 tahun, Anda dapat menyimpan hingga{' '}
-                  <strong className="text-white">
-                    Rp {new Intl.NumberFormat('id-ID').format(calculatedSavings.yearlySavings)}
-                  </strong>
-                  !
-                </div>
               </div>
+            </motion.div>
 
-              <a
-                href="#harga"
-                className="w-full py-3.5 px-6 rounded-2xl bg-white text-neutral-900 font-bold text-xs hover:bg-neutral-100 transition-all flex items-center justify-center gap-2 shadow-md relative z-10 cursor-pointer"
-              >
-                <span>Pilih Paket Langganan Sekarang</span>
-                <ArrowRight className="w-4 h-4" />
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
+            {/* Step 2 (Alternating: Visual Left, Text Right) */}
+            <motion.div
+              initial={{ opacity: 0, y: 35 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-80px' }}
+              transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+              className="bg-white rounded-4xl p-6 sm:p-10 lg:p-12 border border-[#E5E5DC] shadow-bone hover:border-neutral-400 hover:shadow-bone-lg transition-all"
+            >
+              <div className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+                {/* Visual Col */}
+                <div className="lg:col-span-7 flex justify-center order-2 lg:order-1">
+                  <div className="w-full max-w-lg bg-white p-5 sm:p-7 rounded-3xl border border-[#E5E5DC] shadow-xl hover:shadow-2xl transition-all space-y-3 relative overflow-hidden">
+                    {/* Ambient subtle accent glow */}
+                    <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
 
-      {/* ── 4. Keunggulan & Keamanan (Bento Grid 5-Kartu Asimetris) ── */}
-      <section id="fitur" className="py-24 px-4 bg-[#F8F8F5]">
-        <div className="max-w-6xl mx-auto space-y-14">
-          <div className="text-center space-y-3">
-            <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-white text-neutral-800 border border-[#DDDDCF] shadow-2xs">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              Arsitektur &amp; Keamanan Teruji
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-neutral-900 tracking-tight">
-              Kenapa Ribuan Pengguna Memilih HitShare?
-            </h2>
-            <p className="text-sm sm:text-base text-neutral-600 max-w-xl mx-auto">
-              Dibangun dengan teknologi sinkronisasi sesi browser modern untuk memastikan stabilitas akses tanpa risiko keamanan.
-            </p>
-          </div>
+                    {/* Browser Toolbar Mockup */}
+                    <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-2xl bg-[#EDEDE8] border border-[#DDDDCF]">
+                      {/* URL Bar */}
+                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-[#D5D5CA] text-xs font-medium text-neutral-600 flex-1 min-w-0 shadow-2xs">
+                        <Lock className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                        <span className="text-neutral-800 font-semibold truncate">hitshare.web.id</span>
+                      </div>
 
-          {/* Asymmetric Bento Grid (1 Wide Hero Card + 4 Supporting Cards) */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Card 1: Wide Bento Card (Spans 2 cols on lg) */}
-            <div className="lg:col-span-2 bg-white rounded-4xl p-7 sm:p-9 border border-[#E8E8DF] shadow-bone hover:border-neutral-400 hover:shadow-bone-lg transition-all flex flex-col justify-between space-y-6">
-              <div className="space-y-4">
-                <div className="w-12 h-12 rounded-2xl bg-neutral-900 text-white flex items-center justify-center shadow-sm">
-                  <Shield className="w-6 h-6 text-emerald-400" />
+                      {/* Toolbar action buttons */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {/* Pinned HitShare icon */}
+                        <div className="w-7 h-7 rounded-lg bg-white border border-[#DDDDCF] p-1 flex items-center justify-center shadow-2xs">
+                          <img src="/icon.png" alt="HitShare" className="w-full h-full object-contain" />
+                        </div>
+
+                        {/* Puzzle icon (Active) */}
+                        <div className="w-7 h-7 rounded-lg bg-[#202124] text-white flex items-center justify-center shadow-xs">
+                          <ChromePuzzleIcon className="w-3.5 h-3.5 text-white" />
+                        </div>
+
+                        {/* Three dots */}
+                        <div className="text-neutral-500 px-0.5">
+                          <MoreVertical className="w-4 h-4" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Chrome Extensions Floating Dark Popup */}
+                    <div className="w-full max-w-[340px] ml-auto bg-[#202124] text-white rounded-2xl p-4 shadow-2xl border border-[#3C4043] space-y-3">
+                      {/* Header: Extensions & Close */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-white tracking-wide">Extensions</span>
+                        <button type="button" className="text-[#9AA0A6] hover:text-white p-0.5 rounded transition-colors">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Subtitle */}
+                      <div className="space-y-0.5">
+                        <div className="text-xs font-semibold text-[#E8EAED]">No access needed</div>
+                        <p className="text-[11px] text-[#9AA0A6] leading-snug">
+                          These extensions don't need to see and change information on this site.
+                        </p>
+                      </div>
+
+                      {/* Extension Item: HitShare */}
+                      <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#303134] border border-[#3C4043]/60 transition-all hover:bg-[#35363A]">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-6 h-6 rounded-md bg-white p-0.5 flex items-center justify-center shrink-0 shadow-xs">
+                            <img src="/icon.png" alt="HitShare" className="w-full h-full object-contain" />
+                          </div>
+                          <span className="text-xs font-medium text-white truncate">HitShare</span>
+                        </div>
+
+                        {/* Pin and Options */}
+                        <div className="flex items-center gap-2 text-[#9AA0A6] shrink-0">
+                          <div className="p-1 rounded-md text-[#8AB4F8] hover:bg-white/10 transition-colors" title="Sematkan ke toolbar">
+                            <Pin className="w-4 h-4 rotate-45 fill-[#8AB4F8]" />
+                          </div>
+                          <div className="p-1 rounded-md text-[#9AA0A6] hover:bg-white/10 transition-colors">
+                            <MoreVertical className="w-4 h-4" />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Footer: Manage extensions */}
+                      <div className="pt-2 border-t border-[#3C4043] flex items-center gap-2 text-xs text-[#E8EAED] hover:text-white transition-colors cursor-default">
+                        <Settings className="w-3.5 h-3.5 text-[#9AA0A6]" />
+                        <span>Manage extensions</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">
-                    Zero-Password Sharing
-                  </span>
-                  <h3 className="text-xl sm:text-2xl font-bold text-neutral-900">
-                    Teknologi Injeksi Sesi Terenkripsi (Tanpa Bagi Password)
+
+                {/* Text Col */}
+                <div className="lg:col-span-5 space-y-5 order-1 lg:order-2">
+                  <div className="flex items-center gap-3">
+                    <span className="w-12 h-12 rounded-2xl bg-neutral-900 text-white font-display font-black text-base flex items-center justify-center shadow-sm">
+                      02
+                    </span>
+                  </div>
+                  <h3 className="text-2xl sm:text-3xl font-extrabold text-neutral-900 leading-tight">
+                    Sematkan ke Toolbar Browser
                   </h3>
-                  <p className="text-xs sm:text-sm text-neutral-600 leading-relaxed max-w-2xl">
-                    Keamanan nomor satu. Kami tidak pernah membagikan username atau password asli kepada pengguna. Ekstensi HitShare bekerja dengan menyuntikkan cookie sesi terenkripsi 256-bit langsung ke browser Anda. Akun bebas dari risiko dibajak, diubah password, atau terkena banned sepihak.
+                  <p className="text-sm sm:text-base text-neutral-600 leading-relaxed">
+                    Buka menu ekstensi di toolbar browser Anda, lalu klik ikon pin pada HitShare. Ikon ekstensi akan selalu menetap di bar atas browser untuk akses cepat setiap saat.
                   </p>
+                  <ul className="space-y-2.5 pt-2 text-xs sm:text-sm text-neutral-700">
+                    <li className="flex items-center gap-2.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Akses super cepat cukup 1 kali klik langsung dari bar navigasi</span>
+                    </li>
+                    <li className="flex items-center gap-2.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Ikon selalu standby dengan indikator status ekstensi aktif</span>
+                    </li>
+                    <li className="flex items-center gap-2.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Rapi, teratur, dan tidak perlu repot mencari di menu pengaturan</span>
+                    </li>
+                  </ul>
                 </div>
               </div>
+            </motion.div>
 
-              {/* Visual Workflow Diagram */}
-              <div className="p-4 sm:p-5 bg-[#FAF9F5] rounded-3xl border border-[#EAEAE0] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-                <div className="flex items-center gap-2 p-2.5 bg-white rounded-2xl border border-[#E5E5DC] w-full sm:w-auto">
-                  <div className="w-7 h-7 rounded-xl bg-neutral-100 flex items-center justify-center font-bold text-neutral-700">
-                    💻
+            {/* Step 3 */}
+            <motion.div
+              initial={{ opacity: 0, y: 35 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-80px' }}
+              transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+              className="bg-white rounded-4xl p-6 sm:p-10 lg:p-12 border border-[#E5E5DC] shadow-bone hover:border-neutral-400 hover:shadow-bone-lg transition-all"
+            >
+              <div className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+                {/* Text Col */}
+                <div className="lg:col-span-5 space-y-5">
+                  <div className="flex items-center gap-3">
+                    <span className="w-12 h-12 rounded-2xl bg-neutral-900 text-white font-display font-black text-base flex items-center justify-center shadow-sm">
+                      03
+                    </span>
                   </div>
-                  <div>
-                    <div className="font-bold text-neutral-900">Browser Pengguna</div>
-                    <div className="text-[10px] text-neutral-500">Ekstensi HitShare</div>
+                  <h3 className="text-2xl sm:text-3xl font-extrabold text-neutral-900 leading-tight">
+                    Pilih Layanan &amp; Login Otomatis
+                  </h3>
+                  <p className="text-sm sm:text-base text-neutral-600 leading-relaxed">
+                    Klik ikon HitShare di toolbar browser dan pilih akun premium yang ingin Anda gunakan. Tab baru akan otomatis terbuka dalam kondisi sudah login resmi tanpa perlu memasukkan email atau password.
+                  </p>
+                  <ul className="space-y-2.5 pt-2 text-xs sm:text-sm text-neutral-700">
+                    <li className="flex items-center gap-2.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Akses instan ke puluhan layanan AI, streaming, desain &amp; produktivitas</span>
+                    </li>
+                    <li className="flex items-center gap-2.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Sinkronisasi sesi otomatis terenkripsi tanpa ketik password manual</span>
+                    </li>
+                    <li className="flex items-center gap-2.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Didukung multi-server cadangan agar akses selalu stabil dan lancar</span>
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Visual Col */}
+                <div className="lg:col-span-7 flex justify-center">
+                  <div className="w-full max-w-lg bg-white p-5 sm:p-7 rounded-3xl border border-[#E5E5DC] shadow-xl hover:shadow-2xl transition-all space-y-3 relative overflow-hidden">
+                    {/* Ambient subtle accent glow */}
+                    <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+
+                    {/* Browser Toolbar Mockup */}
+                    <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-2xl bg-[#EDEDE8] border border-[#DDDDCF]">
+                      {/* URL Bar */}
+                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-[#D5D5CA] text-xs font-medium text-neutral-600 flex-1 min-w-0 shadow-2xs">
+                        <Lock className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                        <span className="text-neutral-800 font-semibold truncate">hitshare.web.id</span>
+                      </div>
+
+                      {/* Toolbar action buttons */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {/* Pinned HitShare icon - ACTIVE / CLICKED */}
+                        <div className="w-7 h-7 rounded-lg bg-white border border-blue-400 p-1 flex items-center justify-center shadow-xs ring-2 ring-blue-500/30">
+                          <img src="/icon.png" alt="HitShare" className="w-full h-full object-contain" />
+                        </div>
+
+                        {/* Chrome Puzzle icon */}
+                        <div className="w-7 h-7 rounded-lg text-neutral-600 hover:text-neutral-900 flex items-center justify-center">
+                          <ChromePuzzleIcon className="w-3.5 h-3.5 text-neutral-600" />
+                        </div>
+
+                        {/* Three dots */}
+                        <div className="text-neutral-500 px-0.5">
+                          <MoreVertical className="w-4 h-4" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* HitShare Extension Popup */}
+                    <div className="w-full max-w-[360px] ml-auto rounded-2xl overflow-hidden border border-[#E5E5DC] shadow-2xl bg-white group/img transition-transform hover:scale-[1.01]">
+                      <img
+                        src="/steps/step-3-popup-clean.png"
+                        alt="HitShare Portal Layanan Premium"
+                        className="w-full h-auto object-contain"
+                        loading="lazy"
+                      />
+                    </div>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-1.5 text-emerald-600 font-mono text-[11px] font-bold">
-                  <span>←</span>
-                  <span className="px-2 py-0.5 bg-emerald-100/80 rounded-md border border-emerald-200">
-                    Cookie Token Terenkripsi
-                  </span>
-                  <span>→</span>
-                </div>
-
-                <div className="flex items-center gap-2 p-2.5 bg-white rounded-2xl border border-[#E5E5DC] w-full sm:w-auto">
-                  <div className="w-7 h-7 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
-                    🔒
-                  </div>
-                  <div>
-                    <div className="font-bold text-neutral-900">Website Premium</div>
-                    <div className="text-[10px] text-neutral-500">Netflix, ChatGPT, Canva</div>
-                  </div>
-                </div>
               </div>
-            </div>
-
-            {/* Card 2: Multi-Server Cadangan */}
-            <div className="bg-white rounded-4xl p-7 border border-[#E8E8DF] shadow-bone hover:border-neutral-400 hover:shadow-bone-lg transition-all flex flex-col justify-between space-y-6">
-              <div className="space-y-4">
-                <div className="w-12 h-12 rounded-2xl bg-neutral-900 text-white flex items-center justify-center shadow-sm">
-                  <Layers className="w-6 h-6 text-amber-400" />
-                </div>
-                <div className="space-y-1.5">
-                  <h3 className="text-lg font-bold text-neutral-900">Multi-Akun Server Anti-Limit</h3>
-                  <p className="text-xs sm:text-sm text-neutral-600 leading-relaxed">
-                    Tersedia pilihan Akun 1, Akun 2, hingga Akun 5 untuk website dengan batasan perangkat. Jika satu server limit, tinggal pindah server cadangan dalam 1 detik.
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-2 p-3 bg-[#FAF9F5] rounded-2xl border border-[#EAEAE0] text-xs">
-                <div className="flex items-center justify-between p-1.5 bg-white rounded-xl border border-[#E8E8DE]">
-                  <span className="font-semibold text-neutral-800">Server Akun 1</span>
-                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">Aktif Normal</span>
-                </div>
-                <div className="flex items-center justify-between p-1.5 bg-white rounded-xl border border-[#E8E8DE]">
-                  <span className="font-semibold text-neutral-800">Server Akun 2</span>
-                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">Cadangan Siap</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Card 3: Device Lock Security */}
-            <div className="bg-white rounded-4xl p-7 border border-[#E8E8DF] shadow-bone hover:border-neutral-400 hover:shadow-bone-lg transition-all flex flex-col justify-between space-y-6">
-              <div className="space-y-4">
-                <div className="w-12 h-12 rounded-2xl bg-neutral-900 text-white flex items-center justify-center shadow-sm">
-                  <Smartphone className="w-6 h-6 text-sky-400" />
-                </div>
-                <div className="space-y-1.5">
-                  <h3 className="text-lg font-bold text-neutral-900">Hardware Device Lock</h3>
-                  <p className="text-xs sm:text-sm text-neutral-600 leading-relaxed">
-                    Satu langganan dikunci ke 1 perangkat (Device ID) demi menjaga stabilitas akun bersama dari pemakaian liar. Ganti laptop? Admin siap bantu reset kapan saja.
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-3 bg-[#FAF9F5] rounded-2xl border border-[#EAEAE0] flex items-center gap-3 text-xs">
-                <Lock className="w-5 h-5 text-neutral-600 shrink-0" />
-                <div>
-                  <div className="font-bold text-neutral-900">1 Langganan = 1 Device ID</div>
-                  <div className="text-[10px] text-neutral-500">Mencegah oversharing &amp; logout</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Card 4: Live Cookie Health Sync */}
-            <div className="bg-white rounded-4xl p-7 border border-[#E8E8DF] shadow-bone hover:border-neutral-400 hover:shadow-bone-lg transition-all flex flex-col justify-between space-y-6">
-              <div className="space-y-4">
-                <div className="w-12 h-12 rounded-2xl bg-neutral-900 text-white flex items-center justify-center shadow-sm">
-                  <RefreshCw className="w-6 h-6 text-emerald-400" />
-                </div>
-                <div className="space-y-1.5">
-                  <h3 className="text-lg font-bold text-neutral-900">Live Health Sync 99.8%</h3>
-                  <p className="text-xs sm:text-sm text-neutral-600 leading-relaxed">
-                    Sistem pemantau berkala dan admin memastikan validitas cookie setiap hari. Ekstensi Anda otomatis menerima sesi terbaru tanpa perlu install ulang.
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-3 bg-[#FAF9F5] rounded-2xl border border-[#EAEAE0] flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span className="font-bold text-neutral-900">Uptime Sesi Fresh</span>
-                </div>
-                <span className="font-mono font-bold text-neutral-800 bg-white px-2 py-0.5 rounded-lg border border-[#E5E5DC]">
-                  99.8%
-                </span>
-              </div>
-            </div>
-
-            {/* Card 5: Instant QRIS Activation 24/7 */}
-            <div className="bg-white rounded-4xl p-7 border border-[#E8E8DF] shadow-bone hover:border-neutral-400 hover:shadow-bone-lg transition-all flex flex-col justify-between space-y-6">
-              <div className="space-y-4">
-                <div className="w-12 h-12 rounded-2xl bg-neutral-900 text-white flex items-center justify-center shadow-sm">
-                  <Zap className="w-6 h-6 text-amber-400" />
-                </div>
-                <div className="space-y-1.5">
-                  <h3 className="text-lg font-bold text-neutral-900">Aktivasi Instan QRIS 24/7</h3>
-                  <p className="text-xs sm:text-sm text-neutral-600 leading-relaxed">
-                    Didukung gateway Paymenku. Pembayaran langsung diverifikasi otomatis detik itu juga untuk semua e-wallet &amp; Mobile Banking tanpa nunggu admin.
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-3 bg-[#FAF9F5] rounded-2xl border border-[#EAEAE0] flex items-center justify-between text-xs">
-                <span className="font-bold text-neutral-900">QRIS • Semua Bank</span>
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full">
-                  Instan &amp; Otomatis
-                </span>
-              </div>
-            </div>
+            </motion.div>
           </div>
         </div>
       </section>
 
-      {/* ── 5. Pilihan Paket (Pricing Section) ── */}
+      {/* ── 4. Pilihan Paket (Pricing Section) ── */}
       <section id="harga" className="py-24 px-4 bg-[#F2F2EC] border-t border-[#E5E5DC]">
         <div className="max-w-6xl mx-auto space-y-12">
-          <div className="text-center space-y-3">
-            <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-white text-neutral-800 border border-[#DDDDCF] shadow-2xs">
-              <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-              Pilihan Investasi Terbaik
-            </span>
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-60px' }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
+            className="text-center space-y-3"
+          >
             <h2 className="text-3xl sm:text-4xl font-extrabold text-neutral-900 tracking-tight">
               Biaya Langganan Terjangkau
             </h2>
             <p className="text-sm sm:text-base text-neutral-600 max-w-lg mx-auto">
               Pilih paket yang paling pas dengan kebutuhan Anda. Semua paket otomatis mendapatkan akses penuh ke seluruh koleksi akun dan update sesi berkala.
             </p>
-          </div>
+          </motion.div>
 
           {plansLoading ? (
             <div className="flex justify-center items-center py-12">
@@ -1127,8 +1017,13 @@ export default function LandingPage() {
                 const badgeLabel = p.badge || (isHighlighted ? 'Paling Hemat' : null);
 
                 return (
-                  <div
+                  <motion.div
                     key={p.plan || idx}
+                    initial={{ opacity: 0, y: 40 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, margin: '-60px' }}
+                    transition={{ duration: 0.55, delay: idx * 0.12, ease: [0.16, 1, 0.3, 1] }}
+                    whileHover={{ y: -6, transition: { duration: 0.2 } }}
                     className={`rounded-4xl p-7 sm:p-8 flex flex-col justify-between space-y-6 transition-all relative ${
                       isHighlighted
                         ? 'bg-neutral-900 text-white border-2 border-neutral-900 shadow-bone-lg md:scale-105 z-10'
@@ -1194,7 +1089,7 @@ export default function LandingPage() {
                         </li>
                         <li className="flex items-center gap-2.5">
                           <CheckCircle2 className={`w-4 h-4 shrink-0 ${isHighlighted ? 'text-emerald-400' : 'text-emerald-600'}`} />
-                          <span>Update Sesi &amp; Cookie Otomatis Berkala</span>
+                          <span>Update Sesi Login Otomatis Berkala</span>
                         </li>
                         <li className="flex items-center gap-2.5">
                           <CheckCircle2 className={`w-4 h-4 shrink-0 ${isHighlighted ? 'text-emerald-400' : 'text-emerald-600'}`} />
@@ -1217,232 +1112,126 @@ export default function LandingPage() {
                     >
                       Pilih Paket {p.label || p.plan}
                     </Link>
-                  </div>
+                  </motion.div>
                 );
               })}
             </div>
           )}
-
-          {/* Guarantee & Trust Badges */}
-          <div className="grid sm:grid-cols-3 gap-4 max-w-4xl mx-auto pt-6 text-center text-xs">
-            <div className="p-4 bg-white rounded-2xl border border-[#E8E8DF] shadow-2xs flex items-center justify-center gap-2.5 text-neutral-700">
-              <ShieldCheck className="w-5 h-5 text-emerald-600" />
-              <span>100% Garansi Sesi Selama Berlangganan</span>
-            </div>
-            <div className="p-4 bg-white rounded-2xl border border-[#E8E8DF] shadow-2xs flex items-center justify-center gap-2.5 text-neutral-700">
-              <Zap className="w-5 h-5 text-amber-500" />
-              <span>Aktivasi Instan Otomatis via QRIS 24/7</span>
-            </div>
-            <div className="p-4 bg-white rounded-2xl border border-[#E8E8DF] shadow-2xs flex items-center justify-center gap-2.5 text-neutral-700">
-              <MessageCircle className="w-5 h-5 text-emerald-600" />
-              <span>Customer Support Cepat Tanggap via WhatsApp</span>
-            </div>
-          </div>
         </div>
       </section>
 
-      {/* ── 6. Carousel Testimoni Otomatis ── */}
-      <section
-        id="testimoni"
-        className="py-24 px-4 bg-[#F8F8F5] relative overflow-hidden"
-        onMouseEnter={() => setIsTestimonialHovered(true)}
-        onMouseLeave={() => setIsTestimonialHovered(false)}
-      >
-        <div className="max-w-4xl mx-auto space-y-12">
-          <div className="text-center space-y-3">
-            <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-white text-neutral-800 border border-[#DDDDCF] shadow-2xs">
-              <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-              Ulasan Pengguna Nyata
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-neutral-900 tracking-tight">
-              Dipercaya Oleh Kreator, Mahasiswa, &amp; Profesional
-            </h2>
-            <p className="text-sm sm:text-base text-neutral-600 max-w-lg mx-auto">
-              Simak pengalaman nyata dari mereka yang telah beralih ke cara cerdas mengakses tools premium.
-            </p>
-          </div>
-
-          {/* Testimonial Card Display */}
-          <div className="relative min-h-[300px] flex items-center">
-            {TESTIMONIALS.map((testi, idx) => {
-              if (idx !== activeTestimonial) return null;
-              return (
-                <motion.div
-                  key={idx}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.35, ease: 'easeOut' }}
-                  className="w-full bg-white rounded-4xl p-8 sm:p-10 border border-[#E8E8DF] shadow-bone-lg space-y-6 relative"
-                >
-                  {/* Rating Stars & Badge */}
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-1">
-                      {[...Array(testi.rating)].map((_, i) => (
-                        <Star key={i} className="w-4 h-4 text-amber-400 fill-amber-400" />
-                      ))}
-                    </div>
-                    <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100 flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                      Terverifikasi Member
-                    </span>
-                  </div>
-
-                  {/* Quote */}
-                  <blockquote className="text-base sm:text-lg text-neutral-800 font-medium leading-relaxed italic">
-                    &ldquo;{testi.quote}&rdquo;
-                  </blockquote>
-
-                  {/* Author Info */}
-                  <div className="flex items-center gap-4 pt-4 border-t border-[#F0F0E8]">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-sm border ${testi.avatarBg}`}>
-                      {testi.avatar}
-                    </div>
-                    <div>
-                      <div className="text-sm font-bold text-neutral-900">{testi.name}</div>
-                      <div className="text-xs text-neutral-500">{testi.role} • {testi.city}</div>
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-
-          {/* Controls: Prev/Next & Dots */}
-          <div className="flex items-center justify-between pt-2">
-            <button
-              onClick={() => setActiveTestimonial((prev) => (prev - 1 + TESTIMONIALS.length) % TESTIMONIALS.length)}
-              className="w-10 h-10 rounded-2xl bg-white border border-[#E0E0D8] text-neutral-700 hover:bg-neutral-900 hover:text-white hover:border-neutral-900 transition-all flex items-center justify-center shadow-2xs cursor-pointer"
-              aria-label="Previous testimonial"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-2">
-              {TESTIMONIALS.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setActiveTestimonial(i)}
-                  className={`h-2 rounded-full transition-all cursor-pointer ${
-                    activeTestimonial === i ? 'w-8 bg-neutral-900' : 'w-2 bg-neutral-300 hover:bg-neutral-400'
-                  }`}
-                  aria-label={`Slide ${i + 1}`}
-                />
-              ))}
+      {/* ── 6. Carousel Testimoni Otomatis (Hidden sementara, ubah SHOW_TESTIMONIALS = true untuk menampilkan) ── */}
+      {SHOW_TESTIMONIALS && (
+        <section
+          id="testimoni"
+          className="py-24 px-4 bg-[#F8F8F5] relative overflow-hidden"
+          onMouseEnter={() => setIsTestimonialHovered(true)}
+          onMouseLeave={() => setIsTestimonialHovered(false)}
+        >
+          <div className="max-w-4xl mx-auto space-y-12">
+            <div className="text-center space-y-3">
+              <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-white text-neutral-800 border border-[#DDDDCF] shadow-2xs">
+                <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                Ulasan Pengguna Nyata
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-neutral-900 tracking-tight">
+                Dipercaya Oleh Kreator, Mahasiswa, &amp; Profesional
+              </h2>
+              <p className="text-sm sm:text-base text-neutral-600 max-w-lg mx-auto">
+                Simak pengalaman nyata dari mereka yang telah beralih ke cara cerdas mengakses tools premium.
+              </p>
             </div>
 
-            <button
-              onClick={() => setActiveTestimonial((prev) => (prev + 1) % TESTIMONIALS.length)}
-              className="w-10 h-10 rounded-2xl bg-white border border-[#E0E0D8] text-neutral-700 hover:bg-neutral-900 hover:text-white hover:border-neutral-900 transition-all flex items-center justify-center shadow-2xs cursor-pointer"
-              aria-label="Next testimonial"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* ── 7. FAQ Interaktif & Pencarian ── */}
-      <section id="faq" className="py-24 px-4 bg-[#F2F2EC] border-t border-[#E5E5DC]">
-        <div className="max-w-4xl mx-auto space-y-10">
-          <div className="text-center space-y-3">
-            <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-white text-neutral-800 border border-[#DDDDCF] shadow-2xs">
-              <HelpCircle className="w-3.5 h-3.5 text-neutral-600" />
-              Tanya Jawab
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-neutral-900 tracking-tight">
-              Pertanyaan yang Sering Diajukan
-            </h2>
-            <p className="text-sm sm:text-base text-neutral-600 max-w-lg mx-auto">
-              Semua yang perlu kamu ketahui tentang cara berlangganan, ekstensi, dan keamanan akun HitShare.
-            </p>
-          </div>
-
-          {/* Search Bar & Category Filter */}
-          <div className="space-y-4">
-            <div className="relative max-w-xl mx-auto">
-              <Search className="w-4 h-4 text-neutral-400 absolute left-4 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={faqSearch}
-                onChange={(e) => setFaqSearch(e.target.value)}
-                placeholder="Cari pertanyaan seputar password, perangkat, pembayaran..."
-                className="w-full pl-11 pr-10 py-3.5 bg-white rounded-2xl border border-[#E0E0D8] text-xs sm:text-sm text-neutral-900 placeholder-neutral-400 focus:outline-hidden focus:border-neutral-900 shadow-2xs"
-              />
-              {faqSearch && (
-                <button
-                  onClick={() => setFaqSearch('')}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              {[
-                { id: 'all', label: 'Semua Pertanyaan' },
-                { id: 'umum', label: 'Umum' },
-                { id: 'keamanan', label: 'Keamanan' },
-                { id: 'ekstensi', label: 'Ekstensi Browser' },
-                { id: 'pembayaran', label: 'Pembayaran' },
-              ].map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => setActiveFaqCategory(c.id)}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
-                    activeFaqCategory === c.id
-                      ? 'bg-neutral-900 text-white'
-                      : 'bg-white text-neutral-600 border border-[#E0E0D8] hover:bg-[#F8F8F5]'
-                  }`}
-                >
-                  {c.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Accordion List */}
-          <div className="space-y-3">
-            {filteredFaqs.length > 0 ? (
-              filteredFaqs.map((faq, idx) => {
-                const isOpen = openFaq === idx;
+            {/* Testimonial Card Display */}
+            <div className="relative min-h-[300px] flex items-center">
+              {TESTIMONIALS.map((testi, idx) => {
+                if (idx !== activeTestimonial) return null;
                 return (
-                  <div
+                  <motion.div
                     key={idx}
-                    className="bg-white border border-[#E8E8DF] rounded-3xl overflow-hidden shadow-bone transition-all"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.35, ease: 'easeOut' }}
+                    className="w-full bg-white rounded-4xl p-8 sm:p-10 border border-[#E8E8DF] shadow-bone-lg space-y-6 relative"
                   >
-                    <button
-                      onClick={() => setOpenFaq(isOpen ? null : idx)}
-                      className="w-full px-6 py-4.5 text-left font-bold text-neutral-900 text-sm sm:text-base flex items-center justify-between gap-4 cursor-pointer"
-                    >
-                      <span>{faq.q}</span>
-                      <ChevronDown
-                        className={`w-4 h-4 text-neutral-500 shrink-0 transition-transform duration-200 ${
-                          isOpen ? 'rotate-180' : ''
-                        }`}
-                      />
-                    </button>
-                    {isOpen && (
-                      <div className="px-6 pb-5 pt-1 text-xs sm:text-sm text-neutral-600 leading-relaxed border-t border-[#F0F0E8] animate-in fade-in duration-200">
-                        {faq.a}
+                    {/* Rating Stars & Badge */}
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-1">
+                        {[...Array(testi.rating)].map((_, i) => (
+                          <Star key={i} className="w-4 h-4 text-amber-400 fill-amber-400" />
+                        ))}
                       </div>
-                    )}
-                  </div>
+                      <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100 flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        Terverifikasi Member
+                      </span>
+                    </div>
+
+                    {/* Quote */}
+                    <blockquote className="text-base sm:text-lg text-neutral-800 font-medium leading-relaxed italic">
+                      &ldquo;{testi.quote}&rdquo;
+                    </blockquote>
+
+                    {/* Author Info */}
+                    <div className="flex items-center gap-4 pt-4 border-t border-[#F0F0E8]">
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-sm border ${testi.avatarBg}`}>
+                        {testi.avatar}
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-neutral-900">{testi.name}</div>
+                        <div className="text-xs text-neutral-500">{testi.role} • {testi.city}</div>
+                      </div>
+                    </div>
+                  </motion.div>
                 );
-              })
-            ) : (
-              <div className="p-8 text-center bg-white rounded-3xl border border-[#E8E8DF] text-xs text-neutral-500">
-                Tidak ada pertanyaan yang cocok dengan kata kunci pencarian Anda.
+              })}
+            </div>
+
+            {/* Controls: Prev/Next & Dots */}
+            <div className="flex items-center justify-between pt-2">
+              <button
+                onClick={() => setActiveTestimonial((prev) => (prev - 1 + TESTIMONIALS.length) % TESTIMONIALS.length)}
+                className="w-10 h-10 rounded-2xl bg-white border border-[#E0E0D8] text-neutral-700 hover:bg-neutral-900 hover:text-white hover:border-neutral-900 transition-all flex items-center justify-center shadow-2xs cursor-pointer"
+                aria-label="Previous testimonial"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-2">
+                {TESTIMONIALS.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setActiveTestimonial(i)}
+                    className={`h-2 rounded-full transition-all cursor-pointer ${
+                      activeTestimonial === i ? 'w-8 bg-neutral-900' : 'w-2 bg-neutral-300 hover:bg-neutral-400'
+                    }`}
+                    aria-label={`Slide ${i + 1}`}
+                  />
+                ))}
               </div>
-            )}
+
+              <button
+                onClick={() => setActiveTestimonial((prev) => (prev + 1) % TESTIMONIALS.length)}
+                className="w-10 h-10 rounded-2xl bg-white border border-[#E0E0D8] text-neutral-700 hover:bg-neutral-900 hover:text-white hover:border-neutral-900 transition-all flex items-center justify-center shadow-2xs cursor-pointer"
+                aria-label="Next testimonial"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ── 8. Floating CTA WhatsApp Banner ── */}
       <div className="py-14 px-4 bg-[#F8F8F5] border-t border-[#E8E8DF]">
-        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6 p-7 sm:p-9 bg-white rounded-4xl border border-[#E5E5DC] shadow-bone-lg">
+        <motion.div
+          initial={{ opacity: 0, y: 30, scale: 0.98 }}
+          whileInView={{ opacity: 1, y: 0, scale: 1 }}
+          viewport={{ once: true, margin: '-60px' }}
+          transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+          className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6 p-7 sm:p-9 bg-white rounded-4xl border border-[#E5E5DC] shadow-bone-lg"
+        >
           <div className="space-y-1.5 text-center sm:text-left">
             <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">
               Customer Support 24/7
@@ -1456,127 +1245,167 @@ export default function LandingPage() {
             href={`https://wa.me/${waNumber}?text=${waMsg}`}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-2.5 px-7 py-3.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-2xl shadow-sm hover:shadow-md transition-all shrink-0 cursor-pointer"
+            className="inline-flex items-center gap-2.5 px-7 py-3.5 text-xs font-bold text-white bg-neutral-900 hover:bg-neutral-800 rounded-2xl shadow-sm hover:shadow-md transition-all shrink-0 cursor-pointer"
           >
             <MessageCircle className="w-4 h-4" />
             <span>Chat Admin WhatsApp</span>
           </a>
-        </div>
+        </motion.div>
       </div>
 
-      {/* ── Sticky Reveal Footer Container (Motion.dev Sticky Reveal Pattern) ── */}
-      <div
-        ref={footerContainerRef}
-        className="relative -mt-20 pt-20"
-        style={{ clipPath: 'polygon(0% 0, 100% 0%, 100% 100%, 0 100%)' }}
+      {/* ── Retro-Modern Poster Footer (Clean Solid Dark Background) ── */}
+      <footer
+        className="relative bg-[#231815] text-[#FDF6E2] pt-16 sm:pt-20 pb-0 overflow-hidden rounded-t-[2.5rem] sm:rounded-t-[3.5rem] lg:rounded-t-[4rem] border-t border-[#3A2823] shadow-2xl"
       >
-        <div className="relative h-full min-h-[480px]">
-          <div className="sticky bottom-0 left-0 right-0 z-0">
-            <motion.footer
-              style={{
-                opacity: footerOpacity,
-                y: footerY,
-              }}
-              className="bg-[#0D0E12] text-neutral-300 pt-16 pb-12 text-sm border-t border-neutral-800 shadow-2xl relative overflow-hidden"
-            >
-              {/* Subtle ambient glow in footer */}
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-32 bg-emerald-500/10 blur-[90px] pointer-events-none rounded-full" />
+        <div className="max-w-7xl mx-auto px-6 sm:px-10 relative z-10">
+          {/* Top Grid: 3 Navigation Columns + CTA Register Column */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-60px' }}
+            transition={{ duration: 0.65, ease: 'easeOut' }}
+            className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-12 gap-8 lg:gap-10 pb-12 sm:pb-16"
+          >
+            {/* Col 1: SHOP / PRODUK */}
+            <div className="lg:col-span-2 space-y-3.5">
+              <h4 className="text-xs sm:text-sm font-black text-[#FCE7A2] tracking-[0.2em] uppercase">
+                PRODUK
+              </h4>
+              <ul className="space-y-2.5 text-xs font-bold tracking-wider uppercase text-[#FDF6E2]/80">
+                <li><a href="#koleksi" className="hover:text-white transition-colors">KOLEKSI TOOLS</a></li>
+                <li><a href="#cara-kerja" className="hover:text-white transition-colors">CARA KERJA</a></li>
+                <li><a href="#harga" className="hover:text-white transition-colors">PILIHAN PAKET</a></li>
+                {SHOW_TESTIMONIALS && (
+                  <li><a href="#testimoni" className="hover:text-white transition-colors">ULASAN PENGGUNA</a></li>
+                )}
+                <li><a href="#koleksi" className="hover:text-white transition-colors">EKSTENSI CHROME</a></li>
+              </ul>
+            </div>
 
-              <div className="max-w-6xl mx-auto px-4 relative z-10">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-neutral-800/80">
-                  {/* Col 1: Brand Info (2 cols wide) */}
-                  <div className="lg:col-span-2 space-y-4">
-                    <Link to="/" className="inline-flex items-center gap-2.5 group">
-                      <div className="w-10 h-10 rounded-2xl bg-white p-1.5 flex items-center justify-center shadow-sm transition-transform group-hover:scale-105 overflow-hidden">
-                        <img src="/icon.png" alt="HitShare Logo" className="w-full h-full object-contain" />
-                      </div>
-                      <div>
-                        <span className="text-xl font-black tracking-tight text-white">HitShare</span>
-                        <span className="block text-[10px] text-neutral-400 font-bold tracking-wider">PREMIUM ACCESS PLATFORM</span>
-                      </div>
-                    </Link>
-                    <p className="text-xs sm:text-sm text-neutral-400 leading-relaxed max-w-sm">
-                      Solusi cerdas akses bersama tools &amp; website premium favorit tanpa bagi password. Mudah, aman, otomatis dengan ekstensi browser berteknologi tinggi.
-                    </p>
-                    <div className="flex flex-wrap items-center gap-2.5 pt-1">
-                      <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-950/80 text-emerald-400 border border-emerald-800/50">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                        Layanan Aktif 24/7
-                      </span>
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-neutral-900 text-neutral-300 border border-neutral-800">
-                        <Shield className="w-3.5 h-3.5 text-emerald-400" />
-                        Sistem Enkripsi 256-bit
-                      </span>
-                    </div>
-                  </div>
+            {/* Col 2: ABOUT / LAYANAN */}
+            <div className="lg:col-span-2 space-y-3.5">
+              <h4 className="text-xs sm:text-sm font-black text-[#FCE7A2] tracking-[0.2em] uppercase">
+                LAYANAN
+              </h4>
+              <ul className="space-y-2.5 text-xs font-bold tracking-wider uppercase text-[#FDF6E2]/80">
+                <li><Link to="/login" className="hover:text-white transition-colors">MASUK MEMBER</Link></li>
+                <li><Link to="/daftar" className="hover:text-white transition-colors">DAFTAR AKUN</Link></li>
+                <li><Link to="/akun" className="hover:text-white transition-colors">DASHBOARD</Link></li>
+                <li><a href={`https://wa.me/${waNumber}?text=${encodeURIComponent('Halo Admin HitShare, saya ingin konfirmasi perpanjangan')}`} target="_blank" rel="noreferrer" className="hover:text-white transition-colors">PERPANJANGAN</a></li>
+              </ul>
+            </div>
 
-                  {/* Col 2: Navigasi Produk */}
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">Navigasi Fitur</h4>
-                    <ul className="space-y-2 text-xs">
-                      <li><a href="#cara-kerja" className="text-neutral-400 hover:text-white transition-colors">Cara Kerja</a></li>
-                      <li><a href="#koleksi" className="text-neutral-400 hover:text-white transition-colors">Koleksi 25+ Akun</a></li>
-                      <li><a href="#hemat" className="text-neutral-400 hover:text-white transition-colors">Kalkulator Hemat</a></li>
-                      <li><a href="#fitur" className="text-neutral-400 hover:text-white transition-colors">Keunggulan &amp; Keamanan</a></li>
-                      <li><a href="#harga" className="text-neutral-400 hover:text-white transition-colors">Pilihan Paket</a></li>
-                      <li><a href="#testimoni" className="text-neutral-400 hover:text-white transition-colors">Ulasan Pengguna</a></li>
-                      <li><a href="#faq" className="text-neutral-400 hover:text-white transition-colors">Tanya Jawab (FAQ)</a></li>
-                    </ul>
-                  </div>
+            {/* Col 3: LEGAL / BANTUAN */}
+            <div className="lg:col-span-2 space-y-3.5">
+              <h4 className="text-xs sm:text-sm font-black text-[#FCE7A2] tracking-[0.2em] uppercase">
+                BANTUAN
+              </h4>
+              <ul className="space-y-2.5 text-xs font-bold tracking-wider uppercase text-[#FDF6E2]/80">
+                <li><a href={`https://wa.me/${waNumber}?text=${encodeURIComponent('Halo Admin HitShare, saya butuh bantuan reset perangkat')}`} target="_blank" rel="noreferrer" className="hover:text-white transition-colors">RESET DEVICE</a></li>
+                <li><a href={`https://wa.me/${waNumber}?text=${waMsg}`} target="_blank" rel="noreferrer" className="hover:text-white transition-colors">GARANSI SESI</a></li>
+                <li><a href="#harga" className="hover:text-white transition-colors">KETENTUAN</a></li>
+                <li><a href={`https://wa.me/${waNumber}?text=${waMsg}`} target="_blank" rel="noreferrer" className="hover:text-white transition-colors">CHAT SUPPORT</a></li>
+              </ul>
+            </div>
 
-                  {/* Col 3: Portal Pengguna */}
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">Akun &amp; Layanan</h4>
-                    <ul className="space-y-2 text-xs">
-                      <li><Link to="/login" className="text-neutral-400 hover:text-white transition-colors">Masuk Member</Link></li>
-                      <li><Link to="/daftar" className="text-neutral-400 hover:text-white transition-colors">Daftar Akun Baru</Link></li>
-                      <li><Link to="/akun" className="text-neutral-400 hover:text-white transition-colors">Dashboard Saya</Link></li>
-                      <li><a href={`https://wa.me/${waNumber}?text=${encodeURIComponent('Halo Admin HitShare, saya butuh bantuan reset perangkat')}`} target="_blank" rel="noreferrer" className="text-neutral-400 hover:text-white transition-colors">Reset Device ID</a></li>
-                      <li><a href={`https://wa.me/${waNumber}?text=${encodeURIComponent('Halo Admin HitShare, saya ingin konfirmasi perpanjangan')}`} target="_blank" rel="noreferrer" className="text-neutral-400 hover:text-white transition-colors">Perpanjangan Langganan</a></li>
-                    </ul>
-                  </div>
+            {/* Col 4: CTA DAFTAR SEKARANG */}
+            <div className="col-span-2 md:col-span-4 lg:col-span-6 flex flex-col items-start lg:items-end">
+              <div className="w-full max-w-md space-y-4">
+                <h4 className="text-xs sm:text-sm font-black text-[#FCE7A2] tracking-[0.2em] uppercase text-left">
+                  DAFTAR SEKARANG
+                </h4>
 
-                  {/* Col 4: Bantuan & Kontak */}
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">Bantuan &amp; Dukungan</h4>
-                    <ul className="space-y-2 text-xs">
-                      <li>
-                        <a
-                          href={`https://wa.me/${waNumber}?text=${waMsg}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 font-bold text-emerald-400 hover:text-emerald-300"
-                        >
-                          <MessageCircle className="w-3.5 h-3.5" />
-                          WhatsApp Customer Support
-                        </a>
-                      </li>
-                      <li><span className="text-neutral-400">Respon cepat: &lt; 10 menit</span></li>
-                      <li><span className="text-neutral-400">Monitoring status sesi 24/7</span></li>
-                      <li><span className="text-neutral-400">100% Garansi aktif akun</span></li>
-                    </ul>
+                {/* Pill CTA Button to /daftar */}
+                <Link
+                  to="/daftar"
+                  className="w-full bg-white hover:bg-[#FCE7A2] text-[#231815] rounded-full py-3.5 px-6 text-xs sm:text-sm font-extrabold flex items-center justify-between shadow-md hover:shadow-lg transition-all group cursor-pointer"
+                >
+                  <span className="font-bold tracking-wide">Daftar Akun HitShare</span>
+                  <div className="w-8 h-8 rounded-full bg-[#231815] text-[#FCE7A2] flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <ArrowRight className="w-4 h-4" />
                   </div>
+                </Link>
+
+                {/* Social icons centered under the CTA button */}
+                <div className="flex items-center justify-center gap-5 pt-1 text-[#FCE7A2]">
+                  {/* Instagram */}
+                  <a
+                    href="https://instagram.com"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="hover:text-white transition-transform hover:scale-115 p-1"
+                    aria-label="Instagram"
+                  >
+                    <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                      <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+                    </svg>
+                  </a>
+
+                  {/* TikTok */}
+                  <a
+                    href="https://tiktok.com"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="hover:text-white transition-transform hover:scale-115 p-1"
+                    aria-label="TikTok"
+                  >
+                    <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                      <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-1.01-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.24 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z" />
+                    </svg>
+                  </a>
+
+                  {/* Facebook */}
+                  <a
+                    href="https://facebook.com"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="hover:text-white transition-transform hover:scale-115 p-1"
+                    aria-label="Facebook"
+                  >
+                    <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                    </svg>
+                  </a>
+
+                  {/* LinkedIn */}
+                  <a
+                    href="https://linkedin.com"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="hover:text-white transition-transform hover:scale-115 p-1"
+                    aria-label="LinkedIn"
+                  >
+                    <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                      <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" />
+                    </svg>
+                  </a>
                 </div>
 
-                {/* Bottom Bar */}
-                <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-neutral-400">
-                  <div className="flex items-center gap-2">
-                    <img src="/icon.png" alt="HitShare" className="w-5 h-5 object-contain rounded-md bg-white p-0.5" />
-                    <span>© {CURRENT_YEAR} <strong className="text-white">HitShare</strong>. Seluruh hak cipta dilindungi undang-undang.</span>
-                  </div>
-                  <div className="flex items-center gap-4 text-neutral-400">
-                    <a href="#fitur" className="hover:text-white transition-colors">Keamanan</a>
-                    <span>•</span>
-                    <a href="#harga" className="hover:text-white transition-colors">Ketentuan Layanan</a>
-                    <span>•</span>
-                    <a href={`https://wa.me/${waNumber}`} target="_blank" rel="noreferrer" className="hover:text-white transition-colors">Bantuan WhatsApp</a>
-                  </div>
+                {/* Copyright centered under CTA */}
+                <div className="text-center text-xs font-semibold text-[#FDF6E2]/70 pt-1 tracking-wider">
+                  © HitShare {CURRENT_YEAR}
                 </div>
               </div>
-            </motion.footer>
-          </div>
+            </div>
+          </motion.div>
         </div>
-      </div>
+
+        {/* ── Giant Typography 'HITSHARE' across the bottom (Slightly cropped at bottom edge) ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 35 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-40px' }}
+          transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
+          className="w-full text-center select-none pointer-events-none relative z-10 mt-6 sm:mt-10 overflow-hidden h-[11vw] sm:h-[11.5vw] lg:h-[12vw] flex items-start justify-center"
+        >
+          <div
+            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+            className="font-black text-white uppercase tracking-tighter leading-none text-[16vw] sm:text-[17vw] lg:text-[18vw] whitespace-nowrap"
+          >
+            HITSHARE
+          </div>
+        </motion.div>
+      </footer>
     </div>
   );
 }

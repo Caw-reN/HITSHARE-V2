@@ -40,10 +40,7 @@ export default function Navbar() {
           <nav className="hidden md:flex items-center gap-6 lg:gap-7 text-xs lg:text-sm font-semibold text-neutral-600">
             <a href="/#koleksi" className="hover:text-neutral-900 transition-colors">Koleksi Tools</a>
             <a href="/#cara-kerja" className="hover:text-neutral-900 transition-colors">Cara Kerja</a>
-            <a href="/#hemat" className="hover:text-neutral-900 transition-colors">Kalkulator Hemat</a>
-            <a href="/#fitur" className="hover:text-neutral-900 transition-colors">Keunggulan</a>
             <a href="/#harga" className="hover:text-neutral-900 transition-colors">Harga Paket</a>
-            <a href="/#faq" className="hover:text-neutral-900 transition-colors">FAQ</a>
           </nav>
         )}
 

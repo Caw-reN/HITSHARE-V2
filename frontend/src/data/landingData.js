@@ -79,7 +79,7 @@ export const ALL_TOOLS = [
     iconLetter: 'GH',
     servers: 2,
     features: [
-      'Autocomplete koding di peramban & IDE',
+      'Autocomplete koding di browser & IDE',
       'Refactoring & debugging pintar',
       'Mendukung puluhan bahasa koding',
       'Saran arsitektur instan',
@@ -419,12 +419,12 @@ export const ALL_FAQS = [
   {
     category: 'umum',
     q: 'Bagaimana cara kerja ekstensi HitShare?',
-    a: 'HitShare menggunakan ekstensi browser (Chrome, Edge, Brave) yang secara otomatis menyinkronkan sesi login (cookies) akun premium ke browser kamu. Kamu cukup membuka popup ekstensi dan klik tombol "Buka Website", lalu tab baru akan terbuka dan kamu langsung login tanpa perlu memasukkan username atau password manual.',
+    a: 'HitShare menggunakan ekstensi browser (Chrome, Edge, Brave) yang secara otomatis menyinkronkan sesi login akun premium ke browser kamu. Kamu cukup membuka popup ekstensi dan klik tombol "Buka Website", lalu tab baru akan terbuka dan kamu langsung login tanpa perlu memasukkan username atau password manual.',
   },
   {
     category: 'keamanan',
     q: 'Apakah password website akan terlihat oleh saya?',
-    a: 'Tidak. Demi keamanan bersama dan mencegah pencurian akun, password asli tidak pernah dibagikan kepada siapa pun. Sistem kami hanya mentransfer cookie sesi terenkripsi 256-bit langsung ke browser peramban Anda sehingga akun tetap aman dari penggantian password atau pembajakan.',
+    a: 'Tidak. Demi keamanan bersama dan mencegah pencurian akun, password asli tidak pernah dibagikan kepada siapa pun. Sistem kami mentransfer token sesi login terenkripsi 256-bit langsung ke browser Anda sehingga akun tetap aman dari penggantian password atau pembajakan.',
   },
   {
     category: 'ekstensi',
@@ -444,7 +444,7 @@ export const ALL_FAQS = [
   {
     category: 'keamanan',
     q: 'Apakah ada garansi jika akun bermasalah?',
-    a: 'Ya, 100% Full Garansi selama masa langganan aktif! Jika ada akun yang logout atau cookie kedaluwarsa, bot dan tim kami akan memperbarui sesi secepat mungkin. Anda juga dapat menghubungi customer service WhatsApp kami yang siap membantu Anda 24 jam.',
+    a: 'Ya, 100% Full Garansi selama masa langganan aktif! Jika ada akun yang logout atau sesi kedaluwarsa, bot dan tim kami akan memperbarui sesi secepat mungkin. Anda juga dapat menghubungi customer service WhatsApp kami yang siap membantu Anda 24 jam.',
   },
   {
     category: 'ekstensi',

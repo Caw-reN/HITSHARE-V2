@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Admin;
+use App\Models\Category;
 use App\Models\Setting;
 use App\Models\User;
 use App\Models\Website;
@@ -358,6 +359,38 @@ class AuthController extends Controller
         }
 
         return response()->json($settings);
+    }
+
+    /**
+     * Public list of active websites & categories for landing page showcase
+     */
+    public function publicWebsites(): JsonResponse
+    {
+        $categories = Category::orderBy('sort_order')->pluck('name')->toArray();
+
+        $websites = Website::with(['category', 'accounts' => function ($query) {
+            $query->where('is_active', true);
+        }])
+        ->where('is_active', true)
+        ->orderBy('name')
+        ->get();
+
+        $items = $websites->map(function ($w) {
+            return [
+                'id'          => $w->id,
+                'name'        => $w->name,
+                'category'    => $w->category?->name ?? 'Lainnya',
+                'category_id' => $w->category_id,
+                'icon'        => $w->icon,
+                'url'         => $w->url,
+                'servers'     => max(1, $w->accounts->count()),
+            ];
+        });
+
+        return response()->json([
+            'categories' => $categories,
+            'websites'   => $items,
+        ]);
     }
 
     /**

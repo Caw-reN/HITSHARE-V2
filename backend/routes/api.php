@@ -26,6 +26,7 @@ Route::middleware('throttle:register')->post('/register',     [AuthController::c
 Route::middleware('auth:sanctum')->post('/sync',              [AuthController::class, 'sync']);
 Route::middleware('throttle:track-click')->post('/track-click',[AuthController::class, 'trackClick']);
 Route::get('/settings/public',                                [AuthController::class, 'publicSettings']);
+Route::get('/websites/public',                                [AuthController::class, 'publicWebsites']);
 Route::get('/payment/plans',                                  [PaymentController::class, 'plans']);
 Route::get('/affiliate/validate/{code}',                      [PaymentController::class, 'validateReferral']);
 
