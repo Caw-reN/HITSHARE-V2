@@ -1003,7 +1003,7 @@ export default function LandingPage() {
               <div className="w-8 h-8 border-3 border-neutral-300 border-t-neutral-900 rounded-full animate-spin" />
             </div>
           ) : (
-            <div className={`grid gap-6 items-stretch ${
+            <div className={`grid gap-6 lg:gap-8 items-stretch md:items-center ${
               plans.length === 1 ? 'max-w-md mx-auto grid-cols-1' :
               plans.length === 2 ? 'max-w-3xl mx-auto md:grid-cols-2' :
               plans.length === 4 ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4' :
@@ -1023,16 +1023,20 @@ export default function LandingPage() {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true, margin: '-60px' }}
                     transition={{ duration: 0.55, delay: idx * 0.12, ease: [0.16, 1, 0.3, 1] }}
-                    whileHover={{ y: -6, transition: { duration: 0.2 } }}
-                    className={`rounded-4xl p-7 sm:p-8 flex flex-col justify-between space-y-6 transition-all relative ${
+                    whileHover={{ y: isHighlighted ? -8 : -5, transition: { duration: 0.2 } }}
+                    className={`rounded-4xl flex flex-col justify-between transition-all relative ${
                       isHighlighted
-                        ? 'bg-neutral-900 text-white border-2 border-neutral-900 shadow-bone-lg md:scale-105 z-10'
-                        : 'bg-white text-neutral-900 border border-[#E8E8DF] shadow-bone hover:border-neutral-400'
+                        ? 'bg-neutral-900 text-white border-2 border-neutral-800 shadow-2xl shadow-neutral-950/30 md:scale-108 lg:scale-110 z-20 py-10 sm:py-11 px-7 sm:px-9 space-y-7'
+                        : 'bg-white text-neutral-900 border border-[#E8E8DF] shadow-bone hover:border-neutral-400 py-7 sm:py-8 px-6 sm:px-8 space-y-6'
                     }`}
                   >
+                    {isHighlighted && (
+                      <div className="absolute -inset-1.5 bg-gradient-to-b from-amber-400/20 via-neutral-900/10 to-transparent rounded-[2.5rem] blur-xl -z-10 pointer-events-none opacity-80" />
+                    )}
+
                     {badgeLabel && (
-                      <div className={`absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-sm ${
-                        isHighlighted ? 'bg-amber-400 text-neutral-950 font-black' : 'bg-neutral-900 text-white'
+                      <div className={`absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-md ${
+                        isHighlighted ? 'bg-amber-400 text-neutral-950 font-black' : 'bg-neutral-900 text-white font-bold'
                       }`}>
                         <Flame className="w-3.5 h-3.5 fill-current" />
                         <span>{badgeLabel}</span>
@@ -1041,11 +1045,11 @@ export default function LandingPage() {
 
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
-                        <h3 className={`text-xl font-bold ${isHighlighted ? 'text-white' : 'text-neutral-900'}`}>
+                        <h3 className={`font-black tracking-tight ${isHighlighted ? 'text-2xl text-white' : 'text-xl text-neutral-900'}`}>
                           {p.label || p.plan}
                         </h3>
-                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                          isHighlighted ? 'bg-neutral-800 text-neutral-300' : 'bg-neutral-100 text-neutral-700'
+                        <span className={`text-xs font-bold px-3 py-1 rounded-full ${
+                          isHighlighted ? 'bg-neutral-800 text-neutral-200 border border-neutral-700/60' : 'bg-neutral-100 text-neutral-700'
                         }`}>
                           {p.duration_days ? `${p.duration_days} Hari` : 'Akses Penuh'}
                         </span>
@@ -1053,10 +1057,10 @@ export default function LandingPage() {
 
                       <div>
                         <div className="flex items-baseline gap-1">
-                          <span className={`text-sm font-medium ${isHighlighted ? 'text-neutral-400' : 'text-neutral-500'}`}>
+                          <span className={`text-sm font-bold ${isHighlighted ? 'text-neutral-400' : 'text-neutral-500'}`}>
                             Rp
                           </span>
-                          <span className={`font-black tracking-tight ${isHighlighted ? 'text-4xl sm:text-5xl text-white' : 'text-3xl sm:text-4xl text-neutral-900'}`}>
+                          <span className={`font-black tracking-tight ${isHighlighted ? 'text-4xl sm:text-5xl lg:text-[3.25rem] text-white' : 'text-3xl sm:text-4xl text-neutral-900'}`}>
                             {formattedPrice}
                           </span>
                         </div>
@@ -1072,31 +1076,31 @@ export default function LandingPage() {
                         )}
                       </div>
 
-                      <ul className={`space-y-2.5 text-xs font-medium pt-4 border-t ${
-                        isHighlighted ? 'text-neutral-300 border-neutral-800' : 'text-neutral-600 border-neutral-100'
+                      <ul className={`text-xs sm:text-[13px] font-medium pt-5 border-t ${
+                        isHighlighted ? 'space-y-3 text-neutral-200 border-neutral-800' : 'space-y-2.5 text-neutral-600 border-neutral-100'
                       }`}>
                         <li className="flex items-center gap-2.5">
-                          <CheckCircle2 className={`w-4 h-4 shrink-0 ${isHighlighted ? 'text-emerald-400' : 'text-emerald-600'}`} />
+                          <CheckCircle2 className={`w-4.5 h-4.5 shrink-0 ${isHighlighted ? 'text-emerald-400' : 'text-emerald-600'}`} />
                           <span>Akses Penuh Seluruh 25+ Website Premium</span>
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <CheckCircle2 className={`w-4 h-4 shrink-0 ${isHighlighted ? 'text-emerald-400' : 'text-emerald-600'}`} />
+                          <CheckCircle2 className={`w-4.5 h-4.5 shrink-0 ${isHighlighted ? 'text-emerald-400' : 'text-emerald-600'}`} />
                           <span>Ekstensi Browser Chrome, Edge &amp; Brave</span>
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <CheckCircle2 className={`w-4 h-4 shrink-0 ${isHighlighted ? 'text-emerald-400' : 'text-emerald-600'}`} />
+                          <CheckCircle2 className={`w-4.5 h-4.5 shrink-0 ${isHighlighted ? 'text-emerald-400' : 'text-emerald-600'}`} />
                           <span>1 Perangkat Aktif (Device Lock Protection)</span>
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <CheckCircle2 className={`w-4 h-4 shrink-0 ${isHighlighted ? 'text-emerald-400' : 'text-emerald-600'}`} />
+                          <CheckCircle2 className={`w-4.5 h-4.5 shrink-0 ${isHighlighted ? 'text-emerald-400' : 'text-emerald-600'}`} />
                           <span>Update Sesi Login Otomatis Berkala</span>
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <CheckCircle2 className={`w-4 h-4 shrink-0 ${isHighlighted ? 'text-emerald-400' : 'text-emerald-600'}`} />
+                          <CheckCircle2 className={`w-4.5 h-4.5 shrink-0 ${isHighlighted ? 'text-emerald-400' : 'text-emerald-600'}`} />
                           <span>Multi-Akun Server Cadangan (Anti-Limit)</span>
                         </li>
                         <li className="flex items-center gap-2.5">
-                          <CheckCircle2 className={`w-4 h-4 shrink-0 ${isHighlighted ? 'text-emerald-400' : 'text-emerald-600'}`} />
+                          <CheckCircle2 className={`w-4.5 h-4.5 shrink-0 ${isHighlighted ? 'text-emerald-400' : 'text-emerald-600'}`} />
                           <span>Garansi Penuh Selama Masa Langganan</span>
                         </li>
                       </ul>
@@ -1104,10 +1108,10 @@ export default function LandingPage() {
 
                     <Link
                       to={`/daftar?plan=${encodeURIComponent(p.plan)}`}
-                      className={`w-full py-3.5 text-center text-xs font-bold rounded-2xl transition-all cursor-pointer block ${
+                      className={`w-full text-center rounded-2xl transition-all cursor-pointer block ${
                         isHighlighted
-                          ? 'text-neutral-900 bg-white hover:bg-neutral-100 shadow-md hover:shadow-lg'
-                          : 'text-neutral-900 bg-[#F4F4ED] hover:bg-[#EAEAE1] border border-[#DDDDCF]'
+                          ? 'py-4 text-sm font-black text-neutral-950 bg-white hover:bg-neutral-100 shadow-lg hover:shadow-xl hover:scale-[1.02]'
+                          : 'py-3.5 text-xs font-bold text-neutral-900 bg-[#F4F4ED] hover:bg-[#EAEAE1] border border-[#DDDDCF]'
                       }`}
                     >
                       Pilih Paket {p.label || p.plan}
