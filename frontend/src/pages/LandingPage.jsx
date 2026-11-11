@@ -1255,7 +1255,7 @@ export default function LandingPage() {
 
       {/* ── Retro-Modern Poster Footer (Clean Solid Dark Background) ── */}
       <footer
-        className="relative bg-[#231815] text-[#FDF6E2] pt-16 sm:pt-20 pb-0 overflow-hidden rounded-t-[2.5rem] sm:rounded-t-[3.5rem] lg:rounded-t-[4rem] border-t border-[#3A2823] shadow-2xl"
+        className="relative bg-neutral-900 text-[#FDF6E2] pt-16 sm:pt-20 pb-0 overflow-hidden rounded-t-[2.5rem] sm:rounded-t-[3.5rem] lg:rounded-t-[4rem] border-t border-neutral-800 shadow-2xl"
       >
         <div className="max-w-7xl mx-auto px-6 sm:px-10 relative z-10">
           {/* Top Grid: 3 Navigation Columns + CTA Register Column */}
@@ -1318,10 +1318,10 @@ export default function LandingPage() {
                 {/* Pill CTA Button to /daftar */}
                 <Link
                   to="/daftar"
-                  className="w-full bg-white hover:bg-[#FCE7A2] text-[#231815] rounded-full py-3.5 px-6 text-xs sm:text-sm font-extrabold flex items-center justify-between shadow-md hover:shadow-lg transition-all group cursor-pointer"
+                  className="w-full bg-white hover:bg-[#FCE7A2] text-neutral-900 rounded-full py-3.5 px-6 text-xs sm:text-sm font-extrabold flex items-center justify-between shadow-md hover:shadow-lg transition-all group cursor-pointer"
                 >
                   <span className="font-bold tracking-wide">Daftar Akun HitShare</span>
-                  <div className="w-8 h-8 rounded-full bg-[#231815] text-[#FCE7A2] flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <div className="w-8 h-8 rounded-full bg-neutral-900 text-[#FCE7A2] flex items-center justify-center group-hover:scale-110 transition-transform">
                     <ArrowRight className="w-4 h-4" />
                   </div>
                 </Link>

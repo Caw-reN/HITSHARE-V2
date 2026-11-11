@@ -211,9 +211,9 @@ class TelegramNotifierService
     /**
      * Ekstrak pesan error ramah dari Guzzle / Telegram API
      */
-    protected function extractErrorMessage(\Exception $e): string
+    protected function extractErrorMessage(\Throwable $e): string
     {
-        if ($e instanceof \GuzzleHttp\Exception\RequestException && $e->hasResponse()) {
+        if ($e instanceof \GuzzleHttp\Exception\RequestException && $e->getResponse()) {
             $body = (string) $e->getResponse()->getBody();
             $data = json_decode($body, true);
             if (!empty($data['description'])) {
@@ -245,9 +245,9 @@ class TelegramNotifierService
             return false;
         }
 
-        $websiteName = $account->website?->name ?? 'Website Layanan';
-        $label = $account->label ?? 'Akun';
-        $healthMsg = $account->health_message ?: 'Sesi terindikasi tidak valid';
+        $websiteName = htmlspecialchars($account->website?->name ?? 'Website Layanan', ENT_QUOTES, 'UTF-8');
+        $label = htmlspecialchars($account->label ?? 'Akun', ENT_QUOTES, 'UTF-8');
+        $healthMsg = htmlspecialchars($account->health_message ?: 'Sesi terindikasi tidak valid', ENT_QUOTES, 'UTF-8');
         $timeStr = now()->setTimezone('Asia/Jakarta')->translatedFormat('d M Y, H:i') . ' WIB';
 
         if ($status === 'logged_out') {
@@ -260,7 +260,7 @@ class TelegramNotifierService
             $actionHint = 'Masa berlaku cookie telah berakhir. Harap perbarui dengan array JSON cookie baru.';
         } else {
             $icon = '⏳';
-            $statusTitle = 'SEGERA KADALUARSA (< 48 JAM)';
+            $statusTitle = 'SEGERA KADALUARSA (&lt; 48 JAM)';
             $actionHint = 'Cookie masih aktif login, namun masa berlakunya akan segera habis.';
         }
 
@@ -300,10 +300,10 @@ class TelegramNotifierService
 
         $i = 1;
         foreach (array_slice($criticalAccounts, 0, 10) as $acc) {
-            $wName = $acc['website_name'] ?? 'Website';
-            $label = $acc['label'] ?? 'Akun';
+            $wName = htmlspecialchars($acc['website_name'] ?? 'Website', ENT_QUOTES, 'UTF-8');
+            $label = htmlspecialchars($acc['label'] ?? 'Akun', ENT_QUOTES, 'UTF-8');
             $st = $acc['status'] ?? 'unknown';
-            $msg = $acc['health_message'] ?? '';
+            $msg = htmlspecialchars($acc['health_message'] ?? '', ENT_QUOTES, 'UTF-8');
 
             $stBadge = $st === 'logged_out' ? '🔴 Logout' : ($st === 'expired' ? '🔴 Expired' : '🟡 Segera Habis');
             $text .= "{$i}. <b>{$wName}</b> ({$label})\n   {$stBadge}: <i>{$msg}</i>\n";

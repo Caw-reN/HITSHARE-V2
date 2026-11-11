@@ -250,7 +250,7 @@ class CookieVerifierService
             $statusChanged = $prevStatus !== $finalStatus;
             try {
                 app(\App\Services\TelegramNotifierService::class)->sendCookieAlert($account, $statusChanged);
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 Log::warning('Gagal kirim alert telegram cookie: ' . $e->getMessage());
             }
         }

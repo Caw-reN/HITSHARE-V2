@@ -177,8 +177,12 @@ class AdminWebsiteController extends Controller
 
         // Auto verify status login & kadaluarsa cookie jika cookie diisi
         if ($hasCookie) {
-            app(CookieVerifierService::class)->verifyAccount($account, true);
-            $account->refresh();
+            try {
+                app(CookieVerifierService::class)->verifyAccount($account, true);
+                $account->refresh();
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Auto-verify cookie error: ' . $e->getMessage());
+            }
         }
 
         return response()->json([
@@ -226,8 +230,12 @@ class AdminWebsiteController extends Controller
 
         // Jika cookie diubah atau baru diisi, verifikasi ulang otomatis
         if ($cookieChanged) {
-            app(CookieVerifierService::class)->verifyAccount($account, true);
-            $account->refresh();
+            try {
+                app(CookieVerifierService::class)->verifyAccount($account, true);
+                $account->refresh();
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Auto-verify cookie error: ' . $e->getMessage());
+            }
         }
 
         return response()->json([
